@@ -1,0 +1,47 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+*.egg-info/
+dist/
+.eggs/
+
+# Alembic
+# (versions/ 폴더는 커밋 대상이므로 제외하지 않음)
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Local requirement and reference documents
+docs/원본_요구사항목록.docx
+docs/소프트웨어_개발보안_가이드(2021.12.29).pdf
+
+# Unfinished design drafts (pending Lunaris template cleanup, see docs/design/README.md)
+docs/design/drafts/
+
+# Node
+node_modules/
+frontend/dist/
+frontend/.vite/
+*.tsbuildinfo
+
+# Docker
+*.log
+
+# Local agent state
+.omx/
+.omc/
+docs/.omc/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
