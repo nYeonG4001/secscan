@@ -23,8 +23,8 @@ erDiagram
         string name
         text description
         string source_type
-        string target_languages
-        string source_location
+        jsonb target_languages "허용 언어 코드 목록"
+        string source_location "업로드 전에는 NULL, 시스템 관리 위치값"
         int created_by FK
         datetime created_at
         datetime updated_at
@@ -40,10 +40,14 @@ erDiagram
         int id PK
         int project_id FK
         int executed_by FK
+        string engine "분석 엔진 또는 방식"
+        jsonb analyzed_languages "분석 시점 언어 코드 목록"
+        string source_snapshot_location
         string status "PENDING/RUNNING/COMPLETED/FAILED"
         datetime created_at
         datetime started_at
         datetime completed_at
+        string error_code
         text error_message
         jsonb summary "분석 실행 요약"
         jsonb raw_result "semgrep 원본 출력"
@@ -81,6 +85,22 @@ erDiagram
 ```
 
 `PROJECT_ACCESS(project_id, user_id)` UNIQUE 제약.
+
+`PROJECT_ACCESS`는 일반 사용자에게 부여한 프로젝트 접근권한을 저장한다. ADMIN은 별도 접근권한 행 없이 모든 프로젝트에 접근한다.
+
+`PROJECT.target_languages`는 프로젝트에서 분석할 언어 코드의 목록이다. MVP 허용값은 `JAVA`, `JAVASCRIPT`, `PYTHON`이며 한 개 이상을 저장한다.
+
+`PROJECT.source_location`은 프로젝트 생성 시 비어 있을 수 있다. 파일 업로드가 성공하면 시스템이 관리하는 업로드 위치값을 기록하며, 사용자가 서버 경로를 직접 입력하지 않는다.
+
+`ANALYSIS.engine`은 해당 실행에 사용한 분석 엔진 또는 방식을 기록한다. `ANALYSIS.analyzed_languages`는 실행 생성 시점에 확정한 언어 코드 목록이며, 이후 `PROJECT.target_languages`가 바뀌어도 변경하지 않는다.
+
+`ANALYSIS.source_snapshot_location`은 해당 분석이 사용한 소스 스냅샷의 시스템 관리 위치값이다. 분석 생성 시 업로드 검증이 끝난 `PROJECT.source_location`의 사본을 이 위치에 만들고, 그 위치를 기록한다. 이후 프로젝트 소스가 교체되거나 수정되어도 기존 분석의 스냅샷 위치는 변경하지 않는다. MVP 기간에는 분석 스냅샷을 자동 삭제하지 않는다. 이 내부 위치값은 API 응답으로 제공하지 않는다. 관리자 소스 뷰어는 MVP 완료 조건에 포함되지 않는 선택 작업이며, 이후 구현하게 되면 분석 식별자를 기준으로 서버 안에서만 이 값을 사용한다.
+
+`ANALYSIS.status`는 `PENDING`, `RUNNING`, `COMPLETED`, `FAILED` 중 하나다. `FAILED`의 세부 원인은 `error_code`에 저장하고, 상세 `error_message`와 실행 로그는 ADMIN에게만 제공한다.
+
+상태 전환은 `PENDING → RUNNING`, `PENDING → FAILED`, `RUNNING → COMPLETED`, `RUNNING → FAILED`만 허용한다. 완료 또는 실패한 분석을 다시 실행할 때는 기존 행을 변경하지 않고 새 분석 행을 만든다.
+
+FINDING의 KISA 매핑 여부는 `kisa_code` 하나로 판단한다. 값이 있으면 KISA 매핑 결과이고, 값이 없으면 미매핑 결과다. API의 매핑 상태 필터값 `KISA_MAPPED`, `UNMAPPED`는 이 값에서 계산하며 별도 컬럼으로 저장하지 않는다. 미매핑 결과는 KISA 카탈로그 49개 항목에 추가하지 않는다.
 
 ## MVP 기능 ↔ 엔티티 매핑
 
