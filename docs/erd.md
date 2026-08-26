@@ -56,6 +56,7 @@ erDiagram
         int id PK
         int analysis_id FK
         string kisa_code FK
+        string criterion_id "분석 시점 스냅샷, 미매핑이면 NULL"
         string rule_name "분석 시점 스냅샷, ADR-005"
         string severity
         string confidence
@@ -101,6 +102,8 @@ erDiagram
 상태 전환은 `PENDING → RUNNING`, `PENDING → FAILED`, `RUNNING → COMPLETED`, `RUNNING → FAILED`만 허용한다. 완료 또는 실패한 분석을 다시 실행할 때는 기존 행을 변경하지 않고 새 분석 행을 만든다.
 
 FINDING의 KISA 매핑 여부는 `kisa_code` 하나로 판단한다. 값이 있으면 KISA 매핑 결과이고, 값이 없으면 미매핑 결과다. API의 매핑 상태 필터값 `KISA_MAPPED`, `UNMAPPED`는 이 값에서 계산하며 별도 컬럼으로 저장하지 않는다. 미매핑 결과는 KISA 카탈로그 49개 항목에 추가하지 않는다.
+
+FINDING의 `criterion_id`는 KISA 카탈로그의 기준 식별자를 결과 정규화 시점에 복사한 값이다. 카탈로그의 기준 식별자가 이후 수정되어도 과거 진단 결과의 기준 식별자는 변경하지 않는다. 미매핑 결과는 `criterion_id`를 비워 둔다.
 
 ## MVP 기능 ↔ 엔티티 매핑
 
