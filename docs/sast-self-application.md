@@ -13,7 +13,7 @@
 | 최소 권한과 실패 시 차단(fail-closed) 원칙 | 비인가 프로젝트/분석/진단 자원 요청은 존재 여부를 노출하지 않고 404, 인증 실패는 401, 역할 권한 부족은 403으로 응답 | `docs/adr/008-unauthorized-response-policy.md`. API 계약에도 "권한이 없는 프로젝트 자원은 404로 응답한다" 명시 — `docs/api-contract.md` |
 | 정보 은닉(민감 필드 역할별 분리) | 관리자/일반 사용자 응답 스키마를 `AnalysisUserOut`/`AnalysisAdminOut`으로 분리하고, `error_code`·`error_message`·실행 로그·`raw_result`는 관리자 전용 필드로 제외 | `docs/adr/009-role-based-response-schema.md`. `source_snapshot_location`은 어떤 API 응답에도 포함하지 않는 것도 같은 원칙 — `docs/api-contract.md` |
 | 사용자 입력 서버 경로 신뢰 금지 | 프로젝트 생성 시 관리자가 소스 위치를 직접 입력하지 않고, 업로드 성공 후 시스템이 관리하는 위치값을 `source_location`에 기록. 향후 기관 내부 경로 지원 시에도 임의의 서버 경로를 그대로 열지 않고 허용된 루트·접근 권한을 검증하기로 사전에 결정 | `docs/adr/006-source-registration-scope.md` |
-| 분석 결과 무결성과 감사 추적성 | 진단 기준(KISA_CATALOG)을 나중에 수정해도 과거 분석 결과가 소급 변경되지 않도록, Finding에 분석 시점의 항목명·신뢰도·언어·조치 권고를 스냅샷으로 복사 저장 | `docs/adr/005-finding-snapshot.md`, `docs/adr/007-recommendation-source.md` |
+| 분석 결과 무결성과 감사 추적성 | 진단 기준(KISA_CATALOG)을 나중에 수정해도 과거 분석 결과가 소급 변경되지 않도록, Finding에 분석 시점의 항목명, 기준 식별자, 신뢰도, 언어, 조치 권고를 스냅샷으로 복사 저장 | `docs/adr/005-finding-snapshot.md`, `docs/adr/007-recommendation-source.md` |
 | 분석 결과의 정직한 표시(과잉 주장 방지) | KISA 49개 항목을 모두 카탈로그로 관리하되 실제 탐지 여부를 `지원`/`부분 지원`/`미지원`으로 구분 표시하고, 외부 도구 결과가 KISA 항목에 매핑되지 않으면 버리지 않고 `미매핑` 상태로 보존 | `docs/adr/011-kisa-detection-priority.md` |
 | 변경 관리 통제(브랜치 보호) | `main` 직접 push 금지, PR만 허용, 병합 전 CI(backend/frontend/security/docker) 전체 통과 필수, force push와 브랜치 삭제 금지 | `docs/development-workflow.md` 2절 |
 
