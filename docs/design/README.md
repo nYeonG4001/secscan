@@ -10,6 +10,8 @@
 
 ## 현재 파일
 
-- `drafts/secscan-login-v0.1.pen`: 로그인 화면 1차 초안
+- `drafts/secscan-login-v0.1.pen`: Lunaris 템플릿 기반 로그인 1차 초안
+- `drafts/secscan-login-v0.2.pen`: SecScan 브랜드와 한국어 문구를 반영한 로그인 초안
+- `drafts/secscan-ui-v0.1.pen`: 관리자 프로젝트 관리와 후속 선택 작업인 분석 소스 뷰어 초안
 
-현재 초안에는 Lunaris 템플릿과 영어 문구가 포함되어 있으므로, SecScan 브랜드와 한국어 문구로 교체한 뒤 최종본으로 승격한다.
+초안 파일은 저장소에서 제외한다. 최종 화면을 확정하면 SecScan 기준 문구와 화면만 남긴 새 파일을 만들고, `DESIGN.md`에 기준 파일을 기록한다.

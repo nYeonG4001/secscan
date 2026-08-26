@@ -2,9 +2,9 @@
 
 ## Source of truth
 - Status: Draft
-- Last refreshed: 2026-08-25
-- Primary product surfaces: 로그인, 프로젝트 관리, 소스 업로드·분석 실행, 분석 상태, 진단 결과, KISA 카탈로그
-- Evidence reviewed: `docs/원본_요구사항목록.docx`, `frontend/src/App.tsx`, `frontend/src/pages/`, `frontend/tailwind.config.ts`, `docs/design/drafts/secscan-login-v0.1.pen`
+- Last refreshed: 2026-08-26
+- Primary product surfaces: 로그인, 프로젝트 관리, 소스 업로드와 분석 실행, 분석 상태, 진단 결과, KISA 카탈로그
+- Evidence reviewed: 별도 보관 원본 요구사항 DOCX, `frontend/src/App.tsx`, `frontend/src/pages/`, `frontend/tailwind.config.ts`, `docs/design/drafts/secscan-login-v0.2.pen`, `docs/design/drafts/secscan-ui-v0.1.pen`
 
 ## Brand
 - Personality: 보안 도구답게 신뢰감 있고 명확한 인터페이스
@@ -79,11 +79,12 @@
 - Test/screenshot expectations: 주요 사용자 흐름과 상태별 렌더링을 검증
 
 ## Open questions
-- [ ] 실제 분석 결과 상세에서 코드 스니펫을 어떤 크기와 형태로 보여줄지
+- [x] 결과 상세에는 권한 있는 사용자가 취약 줄 주변 코드 일부를 조회한다.
+- [ ] 관리자 분석 소스 뷰어는 E1부터 E7까지 완료한 뒤 시간이 남을 때만 구현한다. 현재 MVP 완료 조건에서는 제외한다.
 - [ ] 관리자와 일반 사용자에게 제공할 기본 진입 화면
 - [ ] 모바일 화면을 지원할 범위
 - [ ] 로그인 초안을 SecScan 브랜드와 한국어 문구로 확정할 시점
-- [x] 소스 등록은 파일 업로드, Git 저장소, 기관 내부 경로를 지원하는 방향으로 설계하고 source_location은 검증된 시스템 관리 값으로 사용
+- [x] MVP 소스 등록은 파일 업로드만 지원하고, Git 저장소와 기관 내부 경로는 후속 범위로 둔다. source_location은 검증된 시스템 관리 값으로 사용
 - [x] 조치 권고는 KisaCatalog 기본값과 Finding 분석 시점 스냅샷으로 분리
 - [x] 프로젝트 자원 비인가 접근은 404, 인증 실패는 401, 일반 관리자 기능 권한 부족은 403으로 처리
 - [x] 분석 응답은 사용자용과 관리자용 스키마로 분리
