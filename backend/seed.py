@@ -9,6 +9,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 from app.core.database import SessionLocal
 from app.core.security import hash_password
 from app.models.user import User
+from app.services.kisa_catalog_seed import seed_kisa_catalog
 
 
 def seed():
@@ -51,6 +52,10 @@ def seed():
                 db.add(user)
                 print(f"  생성: {s['email']} ({s['role']})")
         db.commit()
+
+        inserted = seed_kisa_catalog(db)
+        print(f"  KISA 카탈로그: {inserted}개 신규 등록 (총 49개 기준)")
+
         print("Seed 완료")
     finally:
         db.close()
