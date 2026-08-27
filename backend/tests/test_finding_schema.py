@@ -4,7 +4,7 @@ from app.models.finding import Finding
 from app.models.kisa_catalog import KisaCatalog
 from app.models.project import Project
 from app.models.user import User
-from app.schemas.finding import FindingOut
+from app.schemas.finding import FindingAdminOut, FindingUserOut
 
 
 def create_user(db_session, *, email: str, role: str = "ADMIN") -> User:
@@ -136,6 +136,7 @@ def test_finding_snapshot_is_independent_of_catalog_changes(db_session):
     assert catalog_item.recommendation == "변경된 권고 문구"
 
 
-def test_finding_out_schema_includes_new_snapshot_fields():
-    fields = FindingOut.model_fields
-    assert {"criterion_id", "evidence", "recommendation", "raw_result"} <= set(fields)
+def test_finding_out_schemas_include_new_snapshot_fields():
+    assert {"criterion_id", "evidence", "recommendation"} <= set(FindingUserOut.model_fields)
+    assert "raw_result" not in FindingUserOut.model_fields
+    assert "raw_result" in FindingAdminOut.model_fields

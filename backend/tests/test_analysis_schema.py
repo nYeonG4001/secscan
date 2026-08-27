@@ -5,7 +5,7 @@ from app.core.security import hash_password
 from app.models.analysis import Analysis
 from app.models.project import Project
 from app.models.user import User
-from app.schemas.analysis import AnalysisOut
+from app.schemas.analysis import AnalysisAdminOut, AnalysisUserOut
 
 
 def create_user(db_session, *, email: str, role: str = "ADMIN") -> User:
@@ -147,10 +147,11 @@ def test_analyzed_languages_snapshot_is_independent_of_project_target_languages(
     assert analysis.analyzed_languages == ["JAVA"]
 
 
-def test_analysis_out_schema_never_exposes_source_snapshot_location():
-    assert "source_snapshot_location" not in AnalysisOut.model_fields
+def test_analysis_out_schemas_never_expose_source_snapshot_location():
+    assert "source_snapshot_location" not in AnalysisUserOut.model_fields
+    assert "source_snapshot_location" not in AnalysisAdminOut.model_fields
 
 
-def test_analysis_out_schema_includes_new_execution_fields():
-    fields = AnalysisOut.model_fields
+def test_analysis_admin_out_schema_includes_new_execution_fields():
+    fields = AnalysisAdminOut.model_fields
     assert {"engine", "analyzed_languages", "error_code", "summary"} <= set(fields)
