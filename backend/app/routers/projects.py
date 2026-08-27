@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -6,9 +6,34 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.deps import get_current_user, require_admin
 from app.models.project import Project, ProjectAccess
-from app.schemas.project import ProjectAccessCreate, ProjectAccessOut, ProjectCreate, ProjectOut
+from app.schemas.project import (
+    ProjectAccessCreate,
+    ProjectAccessOut,
+    ProjectCreate,
+    ProjectOut,
+    ProjectUpdate,
+)
 
 router = APIRouter(prefix="/projects", tags=["projects"])
+
+
+def _unique_display_name(
+    db: Session, name: str, *, exclude_project_id: Optional[int] = None
+) -> str:
+    def _taken(candidate: str) -> bool:
+        query = db.query(Project).filter(Project.name == candidate)
+        if exclude_project_id is not None:
+            query = query.filter(Project.id != exclude_project_id)
+        return db.query(query.exists()).scalar()
+
+    if not _taken(name):
+        return name
+    suffix = 1
+    while True:
+        candidate = f"{name} ({suffix})"
+        if not _taken(candidate):
+            return candidate
+        suffix += 1
 
 
 @router.get("/", response_model=List[ProjectOut])
@@ -28,24 +53,31 @@ def create_project(
     db: Session = Depends(get_db),
     current_user=Depends(require_admin),
 ):
-    project = Project(name=body.name, created_by=current_user.id)
+    name = _unique_display_name(db, body.name)
+    project = Project(name=name, description=body.description, created_by=current_user.id)
     db.add(project)
     db.commit()
     db.refresh(project)
     return project
 
 
-@router.delete("/{project_id}", status_code=204)
-def delete_project(
+@router.patch("/{project_id}", response_model=ProjectOut)
+def update_project(
     project_id: int,
+    body: ProjectUpdate,
     db: Session = Depends(get_db),
     current_user=Depends(require_admin),
 ):
     project = db.get(Project, project_id)
     if not project:
         raise HTTPException(status_code=404, detail="프로젝트를 찾을 수 없습니다.")
-    db.delete(project)
+    if body.name is not None:
+        project.name = _unique_display_name(db, body.name, exclude_project_id=project_id)
+    if body.description is not None:
+        project.description = body.description
     db.commit()
+    db.refresh(project)
+    return project
 
 
 @router.post("/{project_id}/access", response_model=ProjectAccessOut)

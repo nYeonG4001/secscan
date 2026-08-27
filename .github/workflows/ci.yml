@@ -25,7 +25,7 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     env:
-      DATABASE_URL: postgresql://secscan:secscan@localhost:5432/secscan_test
+      TEST_DATABASE_URL: postgresql://secscan:secscan@localhost:5432/secscan_test
       SECRET_KEY: ci-test-secret-key
     defaults:
       run:
@@ -104,9 +104,9 @@ jobs:
       POSTGRES_DB: secscan
       DATABASE_URL: postgresql://secscan:ci-placeholder-password@db:5432/secscan
       SECRET_KEY: ci-placeholder-secret
-      ADMIN_SEED_EMAIL: admin@secscan.local
+      ADMIN_SEED_EMAIL: admin@secscan.io
       ADMIN_SEED_PASSWORD: ci-placeholder-admin-password
-      USER_SEED_EMAIL: user@secscan.local
+      USER_SEED_EMAIL: user@secscan.io
       USER_SEED_PASSWORD: ci-placeholder-user-password
     steps:
       - uses: actions/checkout@v4
