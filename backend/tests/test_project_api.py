@@ -36,11 +36,11 @@ def login(client, email: str) -> str:
         "/auth/login", json={"email": email, "password": "correct-password"}
     )
     assert response.status_code == 200
-    return response.json()["access_token"]
+    return client.cookies.get("secscan_csrf")
 
 
 def auth_headers(token: str) -> dict:
-    return {"Authorization": f"Bearer {token}"}
+    return {"X-CSRF-Token": token}
 
 
 def test_admin_can_create_project_with_only_name_and_description(client, db_session):
@@ -121,6 +121,27 @@ def test_non_admin_cannot_create_project(client, db_session):
     )
 
     assert response.status_code == 403
+
+
+def test_write_requests_require_a_matching_csrf_header(client, db_session):
+    admin = create_user(db_session, email="admin@secscan.io", role="ADMIN")
+    csrf_token = login(client, admin.email)
+
+    missing = client.post("/projects/", json={"name": "CSRF 누락"})
+    invalid = client.post(
+        "/projects/",
+        json={"name": "CSRF 불일치"},
+        headers={"X-CSRF-Token": "incorrect"},
+    )
+    valid = client.post(
+        "/projects/",
+        json={"name": "CSRF 일치"},
+        headers=auth_headers(csrf_token),
+    )
+
+    assert missing.status_code == 403
+    assert invalid.status_code == 403
+    assert valid.status_code == 200
 
 
 def test_duplicate_project_name_gets_auto_numbered(client, db_session):

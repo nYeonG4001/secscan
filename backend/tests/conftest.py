@@ -23,6 +23,7 @@ if not parsed_test_database_url.database or not parsed_test_database_url.databas
 
 os.environ["DATABASE_URL"] = test_database_url
 os.environ.setdefault("SECRET_KEY", "test-secret-key")
+os.environ.setdefault("SESSION_COOKIE_SECURE", "false")
 
 from app import models  # noqa: E402, F401
 from app.core.database import Base, SessionLocal, engine  # noqa: E402

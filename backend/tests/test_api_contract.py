@@ -7,7 +7,7 @@ from app.core.security import hash_password
 from app.main import app
 from app.models.analysis import Analysis
 from app.models.finding import Finding
-from app.models.project import Project
+from app.models.project import Project, ProjectAccess
 from app.models.user import User
 
 ADMIN_ONLY_ANALYSIS_FIELDS = {"engine", "analyzed_languages", "error_code", "error_message"}
@@ -36,16 +36,23 @@ def create_user(db_session, *, email: str, role: str) -> User:
     return user
 
 
+def grant_project_access(db_session, *, project_id: int, user_id: int, granted_by: int) -> None:
+    db_session.add(
+        ProjectAccess(project_id=project_id, user_id=user_id, granted_by=granted_by)
+    )
+    db_session.commit()
+
+
 def login(client, email: str) -> str:
     response = client.post(
         "/auth/login", json={"email": email, "password": "correct-password"}
     )
     assert response.status_code == 200
-    return response.json()["access_token"]
+    return client.cookies.get("secscan_csrf")
 
 
 def auth_headers(token: str) -> dict:
-    return {"Authorization": f"Bearer {token}"}
+    return {"X-CSRF-Token": token}
 
 
 @pytest.fixture
@@ -87,7 +94,13 @@ def seeded_analysis(db_session):
 def test_user_analysis_list_excludes_admin_only_and_snapshot_fields(
     client, db_session, seeded_analysis
 ):
-    create_user(db_session, email="user@secscan.io", role="USER")
+    user = create_user(db_session, email="user@secscan.io", role="USER")
+    grant_project_access(
+        db_session,
+        project_id=seeded_analysis["project"].id,
+        user_id=user.id,
+        granted_by=seeded_analysis["admin"].id,
+    )
     token = login(client, "user@secscan.io")
 
     response = client.get(
@@ -127,7 +140,13 @@ def test_admin_analysis_list_includes_admin_only_fields(client, db_session, seed
 def test_user_analysis_detail_excludes_admin_only_and_snapshot_fields(
     client, db_session, seeded_analysis
 ):
-    create_user(db_session, email="user@secscan.io", role="USER")
+    user = create_user(db_session, email="user@secscan.io", role="USER")
+    grant_project_access(
+        db_session,
+        project_id=seeded_analysis["project"].id,
+        user_id=user.id,
+        granted_by=seeded_analysis["admin"].id,
+    )
     token = login(client, "user@secscan.io")
 
     response = client.get(
@@ -154,7 +173,13 @@ def test_admin_analysis_detail_includes_admin_only_fields(client, db_session, se
 
 
 def test_user_finding_list_excludes_raw_result(client, db_session, seeded_analysis):
-    create_user(db_session, email="user@secscan.io", role="USER")
+    user = create_user(db_session, email="user@secscan.io", role="USER")
+    grant_project_access(
+        db_session,
+        project_id=seeded_analysis["project"].id,
+        user_id=user.id,
+        granted_by=seeded_analysis["admin"].id,
+    )
     token = login(client, "user@secscan.io")
 
     response = client.get(
@@ -184,7 +209,13 @@ def test_admin_finding_list_includes_raw_result(client, db_session, seeded_analy
 
 
 def test_user_finding_detail_excludes_raw_result(client, db_session, seeded_analysis):
-    create_user(db_session, email="user@secscan.io", role="USER")
+    user = create_user(db_session, email="user@secscan.io", role="USER")
+    grant_project_access(
+        db_session,
+        project_id=seeded_analysis["project"].id,
+        user_id=user.id,
+        granted_by=seeded_analysis["admin"].id,
+    )
     token = login(client, "user@secscan.io")
 
     response = client.get(
