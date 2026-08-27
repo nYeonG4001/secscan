@@ -23,7 +23,7 @@
 
 ```json
 {
-  "email": "admin@secscan.local",
+  "email": "admin@secscan.io",
   "password": "비밀번호"
 }
 ```
