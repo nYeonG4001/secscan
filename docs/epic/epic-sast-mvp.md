@@ -44,7 +44,7 @@
 
 작업 상세를 작성할 때는 `docs/templates/epic-task.md`를 사용한다.
 
-현재 착수한 E1의 작업 상세는 `docs/epic/e1-data-model.md`에 작성한다. E2부터 E7은 번호와 요구사항 매핑만 유지한다.
+E1 작업 상세는 `docs/epic/e1-data-model.md`, E2 작업 상세는 `docs/epic/e2-auth-access-control.md`에 작성한다. E3부터 E7은 해당 에픽 착수 전까지 번호와 요구사항 매핑만 유지한다.
 
 ### E1. 데이터 모델 및 분석 계약 정의
 

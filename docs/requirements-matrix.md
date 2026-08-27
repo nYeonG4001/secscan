@@ -17,12 +17,12 @@
 
 | 요구사항 | 이름 | 에픽과 작업 | 구현 대상 | 테스트 | 증거 | 상태 |
 |---|---|---|---|---|---|---|
-| SFR-001 | 사용자 로그인 | E2-01 | 로그인 API와 화면 | 인증 테스트 | 로그인 성공과 실패 화면 | 진행 |
-| SFR-002 | 인증 수단 발급 | E1-07, E2-01, E2-02 | JWT 발급, 검증, 만료 | 토큰 테스트 | E1-07 진행(2026-08-27): 보호 API 응답이 `current_user.role`을 기준으로 `AnalysisAdminOut`/`AnalysisUserOut`, `FindingAdminOut`/`FindingUserOut`을 선택해 반환하도록 확정(`test_api_contract.py`). 발급·검증·만료 자체는 E2-01/E2-02 잔여 | 진행 |
-| SFR-003 | 역할 기반 접근 제어 | E2-03, E2-10 | 관리자와 일반 사용자 권한 | 역할 권한 테스트 | 역할별 메뉴와 API 응답 | 진행 |
-| SFR-004 | 분석 프로젝트 관리 | E1-02, E1-07, E1-08, E2-03 | 프로젝트 등록, 조회, 수정 | 프로젝트 CRUD 테스트 | E1-02 완료(2026-08-27): `test_project_api.py` 12개 전부 통과(정상 등록, 설명 선택 입력, 필수값 누락, 중복 이름 자동 넘버링, 수정 시 생성자·생성시각 불변, `target_languages` 입력 거부, DELETE 라우트 제거 확인 포함). Project 응답 스키마는 역할별로 필드가 다르지 않아 E1-07 대상에서 제외(docs/api-contract.md 확인). E2-03(관리자 전용 생성·수정)은 잔여 | 진행 |
-| SFR-005 | 프로젝트 사용자 할당 | E1-03, E1-07, E2-06, E2-07 | 접근권한 부여와 해제 | 권한 변경 테스트 | E1-03 완료(2026-08-27): `project_accesses` 테이블에 (project_id, user_id) UNIQUE 제약, `test_project_access_model.py`로 검증. `ProjectAccessOut`은 역할별로 필드가 다르지 않아 E1-07 대상에서 제외. 부여·해제 API의 상세 정책 적용은 E2-06/E2-07 잔여 | 진행 |
-| SFR-006 | 프로젝트 조회 범위 | E1-03, E2-04, E2-05 | 역할과 프로젝트 관계별 조회 | 프로젝트 접근 테스트 | E1-03 완료(2026-08-27): ADMIN은 전체, USER는 `project_accesses` 관계로만 조회 가능한 구조를 모델·`GET /projects` 라우터로 확인. 404 비인가 응답 정책의 라우터 전면 적용은 E2-04/E2-05 잔여 | 진행 |
+| SFR-001 | 사용자 로그인 | E2-01, E2-10, E2-11 | 이메일 로그인 API·쿠키 세션·로그인 화면 | `backend/tests/test_auth_api.py`, `frontend/src/App.test.tsx`, `frontend/src/pages/LoginPage.test.tsx` | 2026-08-27: ADMIN/USER 로그인, 일반 401, 토큰 미노출, HttpOnly 쿠키 및 `/auth/me` 기반 프론트 로그인 흐름을 백엔드 전체 pytest와 Vitest 15개로 확인 | 완료 |
+| SFR-002 | 인증 수단 발급 | E1-07, E2-01, E2-02, E2-11 | JWT 발급·쿠키 전달, 서명·24시간 만료·활성 계정 검증 | `backend/tests/test_auth_api.py`, `backend/tests/test_auth_authorization.py` | 2026-08-27: 누락·변조·만료·잘못된 sub·비활성 기존 세션의 일반 401, `/auth/me`, 멱등 로그아웃과 Secure 설정 분리를 전체 pytest로 확인 | 완료 |
+| SFR-003 | 역할 기반 접근 제어 | E2-03, E2-10, E2-11 | 현재 DB 역할 기반 관리자 API·메뉴 통제 | `backend/tests/test_auth_authorization.py`, `frontend/src/App.test.tsx` | 2026-08-27: 관리자 API 전체의 ADMIN 허용, USER 403, 미인증 401, JWT role claim이 아닌 DB 역할 판정과 USER 메뉴 비노출을 확인. E6에서 새 카탈로그 UI 행동이 추가되면 같은 정책을 재적용 | 진행 |
+| SFR-004 | 분석 프로젝트 관리 | E1-02, E1-07, E1-08, E2-03 | 관리자 프로젝트 등록·수정·조회 API | `backend/tests/test_project_api.py`, `backend/tests/test_auth_authorization.py` | 2026-08-27: 프로젝트 CRUD 계약, CSRF, ADMIN 생성·수정 허용 및 USER 403을 전체 pytest로 확인 | 완료 |
+| SFR-005 | 프로젝트 사용자 할당 | E1-03, E1-07, E2-06, E2-07 | 이메일 기반 접근권한 부여·목록·해제 | `backend/tests/test_project_access_api.py`, `backend/tests/test_project_resource_access.py`, `frontend/src/App.test.tsx` | 2026-08-27: `user_id`/`user_email` 응답, 404·409·422, 204 해제와 즉시 접근 철회를 API·Drawer 테스트로 확인 | 완료 |
+| SFR-006 | 프로젝트 조회 범위 | E1-03, E2-04, E2-05, E2-08 | ADMIN 전체·USER 현재 관계 기반 프로젝트/분석/Finding 조회 | `backend/tests/test_project_resource_access.py`, `backend/tests/test_project_access_api.py` | 2026-08-27: 권한 부여 전 404, 부여 후 200, 해제 후 404와 목록 즉시 제외를 전체 pytest로 확인 | 완료 |
 | SFR-007 | 분석 대상 소스 관리 | E3-01, E3-02, E3-03, E3-06, E3-07 | MVP 파일 업로드와 작업영역 | 업로드 보안 테스트 | 업로드 결과와 분석 스냅샷 보존 확인 | 진행 |
 | SFR-008 | 정적 분석 실행 | E1-07, E4-03, E4-07, E2-03 | 관리자 분석 실행 API | 분석 권한 테스트 | E1-07 진행(2026-08-27): 분석 생성(`POST /api/analyses`)은 관리자 전용으로 이미 `require_admin`을 사용하며 응답은 `AnalysisAdminOut`으로 고정. 실제 실행 로직은 E4-03/E4-07 잔여 | 진행 |
 | SFR-009 | 분석 처리 체계 | E4-01, E4-03, E4-07, E5-01, E5-02, E5-04 | 수집, 분석, 진단, 정규화 흐름 | 분석 처리 테스트 | 원본과 표준 결과 비교 | 미착수 |
@@ -54,24 +54,24 @@
 
 | 요구사항 | 이름 | 에픽과 작업 | 구현 대상 | 테스트 | 증거 | 상태 |
 |---|---|---|---|---|---|---|
-| SEC-001 | 비밀번호 보호 | E2-01, E7-01 | 비밀번호 해시와 응답 제외 | 비밀번호 보호 테스트 | DB와 API 응답 확인 | 진행 |
-| SEC-002 | 보호 기능 인증 | E2-02, E7-01 | 인증 발급, 검증, 만료 | 미인증 요청 테스트 | 401 응답 | 진행 |
-| SEC-003 | 관리자 기능 통제 | E1-07, E2-03, E2-09, E6-05, E6-11 | 관리자 기능과 오류 정보 제한 | 역할 권한 테스트 | E1-07 완료(2026-08-27): 분석 오류 상세(`error_code`/`error_message`)와 진단 원본 결과(`raw_result`)를 `AnalysisAdminOut`/`FindingAdminOut`에만 포함하고 USER 응답에서 제외(ADR-009). `test_api_contract.py`로 ADMIN/USER 응답 필드 차이 검증. 카탈로그 등록(E1-06)·소스 등록·분석 실행 등 나머지 관리자 기능 통제는 E2-03/E2-09/E6-05/E6-11 잔여 | 진행 |
-| SEC-004 | 일반 사용자 권한 통제 | E1-07, E2-03, E2-05, E2-10, E2-11 | 읽기 전용과 관리자 기능 차단 | 일반 사용자 제한 테스트 | E1-07 진행(2026-08-27): USER 응답에서 분석 오류 상세와 원본 결과가 구조적으로 제외됨을 확인(관리자 전용 필드가 아예 응답 모델에 없음). 프로젝트 소속 검증에 따른 조회 범위 차단은 E2-05/E2-08 잔여, 메뉴 차단은 E2-10/E2-11 잔여 | 진행 |
-| SEC-005 | 프로젝트 소속 검증 | E2-05, E2-08, E7-02 | 저장된 관계 기반 접근 검증 | IDOR 테스트 | 비인가 요청 응답 | 미착수 |
-| SEC-006 | 비인가 정보 노출 방지 | E2-08, E7-02 | 자원 존재 정보 비노출 정책 | 404 정책 테스트 | 권한 없는 요청 결과 | 설계 완료 |
+| SEC-001 | 비밀번호 보호 | E2-01, E7-01 | bcrypt 해시 검증과 인증 응답 비밀값 제외 | `backend/tests/test_auth_api.py` | 2026-08-27: 없는 사용자·비활성 사용자도 password verification을 수행하고, 로그인 응답이 email·role만 포함함을 전체 pytest로 확인 | 완료 |
+| SEC-002 | 보호 기능 인증 | E2-02, E7-01 | HttpOnly 쿠키 세션, 서명·만료·활성 계정 검증 | `backend/tests/test_auth_api.py`, `backend/tests/test_auth_authorization.py` | 2026-08-27: 미인증 관리자 API 401, 누락·변조·만료·잘못된 sub·비활성 세션 401을 전체 pytest로 확인 | 완료 |
+| SEC-003 | 관리자 기능 통제 | E1-07, E2-03, E2-09, E6-05, E6-11 | 관리자 API와 내부 오류·원본 결과 제한 | `backend/tests/test_auth_authorization.py`, `backend/tests/test_api_contract.py`, `backend/tests/test_project_resource_access.py` | 2026-08-27: 현재 관리자 API의 USER 403 및 ADMIN/USER 분석·Finding 필드 경계를 확인. E6에서 추가될 카탈로그 화면 행동은 별도 검증 필요 | 진행 |
+| SEC-004 | 일반 사용자 권한 통제 | E1-07, E2-03, E2-05, E2-10, E2-11 | USER 읽기 전용, 관계 기반 조회 및 프론트 관리자 행동 비노출 | `backend/tests/test_auth_authorization.py`, `backend/tests/test_project_resource_access.py`, `frontend/src/App.test.tsx` | 2026-08-27: USER 관리자 API 403, 허용 읽기 경로 200, 관리자 행동·Drawer 비노출을 전체 pytest와 Vitest로 확인 | 완료 |
+| SEC-005 | 프로젝트 소속 검증 | E2-05, E2-08, E7-02 | 저장된 ProjectAccess 관계 기반 프로젝트·분석·Finding 검증 | `backend/tests/test_project_resource_access.py` | 2026-08-27: 직접 ID 요청을 포함해 현재 관계가 없는 프로젝트·분석·Finding을 404로 차단하고, 부여·해제 직후 상태 변화를 전체 pytest로 확인 | 완료 |
+| SEC-006 | 비인가 정보 노출 방지 | E2-08, E7-02 | 비인가와 없는 자원의 동일 404 응답 | `backend/tests/test_project_resource_access.py` | 2026-08-27: 없는 프로젝트·분석·Finding 및 타 프로젝트 ID 요청이 동일한 404 정책을 따름을 전체 pytest로 확인 | 완료 |
 | SEC-007 | 분석 작업 영역 격리 | E3-02, E3-03, E3-08, E3-05, E7-03 | 프로젝트와 분석별 작업영역 격리 | 작업영역 격리 테스트 | 경로 접근 증거 | 미착수 |
 | SEC-008 | 파일 경로 검증 | E3-04, E3-05, E3-06, E3-08, E7-03 | 경로 조작, 심볼릭 링크 차단 | ZIP Slip 테스트 | 업로드 거부 결과 | 미착수 |
-| SEC-009 | 분석 실행 보호 | E1-04, E4-05, E4-06, E4-09, E6-05, E7-04 | 자원, 시간, 오류 로그 접근 제한 | 장시간 작업 테스트 | E1-04 진행(2026-08-27): `error_code`/`error_message`를 관리자 전용 정보로 모델에 분리해 보존(ADR-009 주석), 응답 스키마 역할 분리는 아직 미적용. 실제 접근 제한(응답 스키마 분리, 자원·시간 제한)은 E1-07/E2-09/E4/E7 잔여 | 진행 |
+| SEC-009 | 분석 실행 보호 | E1-04, E2-09, E4-05, E4-06, E4-09, E6-05, E7-04 | 역할별 오류·원본 결과 제한, 이후 자원·시간 제한 | `backend/tests/test_api_contract.py`, `backend/tests/test_project_resource_access.py` | 2026-08-27: E2 범위에서 USER의 `error_code`·`error_message`·실행 로그·`raw_result`·`source_snapshot_location` 미노출을 확인. 실행 자원·시간 제한은 E4/E7 잔여 | 진행 |
 | SEC-010 | 외부 구성요소 보안 관리 | E7-07 | 버전, 라이선스, 취약점, 업데이트 관리 | 의존성 점검 | 점검 결과와 업데이트 기록 | 설계 완료 |
 
 ## 테스트 요구사항
 
 | 요구사항 | 이름 | 에픽과 작업 | 구현 대상 | 테스트 | 증거 | 상태 |
 |---|---|---|---|---|---|---|
-| TST-001 | 인증 기능 시험 | E2-11, E7-01, E7-08 | 관리자와 일반 사용자 로그인, 인증, 보호 기능 차단 | 인증 통합 테스트 | 테스트 결과 | 미착수 |
-| TST-002 | 역할 권한 시험 | E2-11, E7-01, E7-02 | 역할별 허용과 제한 기능 | 권한 통합 테스트 | 테스트 결과 | 미착수 |
-| TST-003 | 프로젝트 접근 시험 | E2-11, E7-02 | 부여 프로젝트 조회와 미할당 프로젝트 차단 | 접근 통합 테스트 | 테스트 결과 | 미착수 |
+| TST-001 | 인증 기능 시험 | E2-11, E7-01, E7-08 | ADMIN/USER 로그인, 쿠키 세션, 인증 실패와 프론트 보호 경로 | `backend/tests/test_auth_api.py`, `frontend/src/App.test.tsx`, `frontend/src/pages/LoginPage.test.tsx` | 2026-08-27: 백엔드 전체 pytest와 Vitest 15개에서 로그인, 24시간 만료, 변조·누락 쿠키, `/auth/me`, 로그아웃, 401 화면을 확인 | 완료 |
+| TST-002 | 역할 권한 시험 | E2-11, E7-01, E7-02 | ADMIN 허용·USER 제한 및 역할별 응답 | `backend/tests/test_auth_authorization.py`, `backend/tests/test_api_contract.py`, `frontend/src/App.test.tsx` | 2026-08-27: ADMIN 2xx, USER 403, DB 역할 기준, USER 민감 필드·관리자 행동 비노출을 확인 | 완료 |
+| TST-003 | 프로젝트 접근 시험 | E2-11, E7-02 | 접근권한 부여·해제와 프로젝트 하위 자원 IDOR 차단 | `backend/tests/test_project_access_api.py`, `backend/tests/test_project_resource_access.py` | 2026-08-27: 부여 전 404, 부여 후 200, 해제 후 404와 목록 즉시 제외, 없는 자원의 404를 확인 | 완료 |
 | TST-004 | 분석 처리 시험 | E4-09, E7-04, E7-06 | 수집, 언어 식별, 분석, 표준화 | 파이프라인 테스트 | 테스트 결과 | 미착수 |
 | TST-005 | 진단 항목 시험 | E5-09, E7-06 | 취약 코드, 정상 코드, 위치와 메타데이터 | 진단 규칙 테스트 | 기대 결과 비교 | 미착수 |
 | TST-006 | 개발보안 가이드 진단 기준 카탈로그 시험 | E1-06, E6-07, E7-05 | 49개 식별자, 분류, 번호, 명칭, 상태 | 카탈로그 테스트 | E1-06 진행(2026-08-27): `test_seed_data_has_exactly_49_items`, `test_seed_inserts_exactly_49_catalog_rows`로 49개 항목·고유 `kisa_code`를 검증. 화면 기반 전수 검증은 E6-07/E7-05 잔여 | 진행 |
