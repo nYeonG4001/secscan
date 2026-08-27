@@ -272,3 +272,47 @@ def test_finding_upgrade_is_reapplicable_after_downgrade(alembic_config):
 
     columns = _finding_columns()
     assert {"criterion_id", "evidence", "recommendation", "raw_result"} <= columns
+
+
+def test_upgrade_head_adds_kisa_catalog_full_fields(alembic_config):
+    command.upgrade(alembic_config, "head")
+
+    columns = _kisa_catalog_columns()
+    assert {"item_number", "reference_info", "active"} <= columns
+
+
+def test_upgrade_head_creates_kisa_catalog_implementation_status_check_constraint(
+    alembic_config,
+):
+    command.upgrade(alembic_config, "head")
+
+    inspector = inspect(engine)
+    constraint_names = {c["name"] for c in inspector.get_check_constraints("kisa_catalog")}
+    assert "ck_kisa_catalog_implementation_status" in constraint_names
+
+
+def test_downgrade_to_0005_removes_kisa_catalog_full_fields(alembic_config):
+    command.upgrade(alembic_config, "head")
+    command.downgrade(alembic_config, "0005")
+
+    columns = _kisa_catalog_columns()
+    assert columns == {
+        "kisa_code",
+        "criterion_id",
+        "category",
+        "name",
+        "description",
+        "default_severity",
+        "implementation_status",
+        "semgrep_rule_id",
+        "recommendation",
+    }
+
+
+def test_kisa_catalog_upgrade_is_reapplicable_after_downgrade(alembic_config):
+    command.upgrade(alembic_config, "head")
+    command.downgrade(alembic_config, "0005")
+    command.upgrade(alembic_config, "head")
+
+    columns = _kisa_catalog_columns()
+    assert {"item_number", "reference_info", "active"} <= columns
