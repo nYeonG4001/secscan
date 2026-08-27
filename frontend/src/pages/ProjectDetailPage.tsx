@@ -1,0 +1,166 @@
+import { AxiosError } from "axios";
+import { FormEvent, useCallback, useEffect, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+
+import { api } from "../api/auth";
+import { useAuth } from "../auth/useAuth";
+import { ActionDrawer } from "../components/ActionDrawer";
+import { FORBIDDEN_MESSAGE, SESSION_EXPIRED_MESSAGE } from "../auth/RouteGuards";
+import { Project } from "./ProjectsPage";
+
+interface ProjectAccess {
+  id: number;
+  user_id: number;
+  user_email: string;
+}
+
+const NOT_FOUND_MESSAGE = "요청한 정보를 찾을 수 없습니다.";
+
+function errorStatus(error: unknown) {
+  return (error as AxiosError).response?.status;
+}
+
+export default function ProjectDetailPage() {
+  const { projectId } = useParams<{ projectId: string }>();
+  const { user, clearUser } = useAuth();
+  const navigate = useNavigate();
+  const [project, setProject] = useState<Project | null>(null);
+  const [accesses, setAccesses] = useState<ProjectAccess[]>([]);
+  const [showAccessPanel, setShowAccessPanel] = useState(false);
+  const [email, setEmail] = useState("");
+  const [accessError, setAccessError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const handleRequestError = useCallback((requestError: unknown) => {
+    const status = errorStatus(requestError);
+    if (status === 401) {
+      clearUser();
+      navigate("/login", { replace: true, state: { message: SESSION_EXPIRED_MESSAGE } });
+      return;
+    }
+    if (status === 403) setError(FORBIDDEN_MESSAGE);
+    else if (status === 404) setError(NOT_FOUND_MESSAGE);
+    else setError("요청을 처리하지 못했습니다. 다시 시도해 주세요.");
+  }, [clearUser, navigate]);
+
+  async function loadAccesses() {
+    if (!projectId) return;
+    try {
+      const response = await api.get<ProjectAccess[]>(`/projects/${projectId}/access`);
+      setAccesses(response.data);
+    } catch (requestError) {
+      const status = errorStatus(requestError);
+      if (status === 401) handleRequestError(requestError);
+      else if (status === 403) setAccessError(FORBIDDEN_MESSAGE);
+      else if (status === 404) setAccessError(NOT_FOUND_MESSAGE);
+      else setAccessError("접근권한을 불러오지 못했습니다. 다시 시도해 주세요.");
+    }
+  }
+
+  useEffect(() => {
+    if (!projectId) return;
+    let active = true;
+    api.get<Project>(`/projects/${projectId}`)
+      .then((response) => {
+        if (active) setProject(response.data);
+      })
+      .catch((requestError) => {
+        if (active) handleRequestError(requestError);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [handleRequestError, projectId]);
+
+  async function openAccessPanel() {
+    setAccessError(null);
+    setShowAccessPanel(true);
+    await loadAccesses();
+  }
+
+  function closeAccessPanel() {
+    setShowAccessPanel(false);
+    setEmail("");
+    setAccessError(null);
+  }
+
+  async function grantAccess(event: FormEvent) {
+    event.preventDefault();
+    if (!projectId) return;
+    setAccessError(null);
+    try {
+      await api.post(`/projects/${projectId}/access`, { email });
+      setEmail("");
+      await loadAccesses();
+    } catch (requestError) {
+      const status = errorStatus(requestError);
+      if (status === 409) setAccessError("이미 접근권한이 있는 사용자입니다.");
+      else if (status === 422) setAccessError("일반 사용자 이메일을 입력해 주세요.");
+      else if (status === 401) handleRequestError(requestError);
+      else if (status === 404) setAccessError(NOT_FOUND_MESSAGE);
+      else setAccessError("접근권한을 부여하지 못했습니다. 다시 시도해 주세요.");
+    }
+  }
+
+  async function revokeAccess(userId: number) {
+    if (!projectId) return;
+    setAccessError(null);
+    try {
+      await api.delete(`/projects/${projectId}/access/${userId}`);
+      await loadAccesses();
+    } catch (requestError) {
+      const status = errorStatus(requestError);
+      if (status === 401) handleRequestError(requestError);
+      else if (status === 404) setAccessError(NOT_FOUND_MESSAGE);
+      else if (status === 403) setAccessError(FORBIDDEN_MESSAGE);
+      else setAccessError("접근권한을 해제하지 못했습니다. 다시 시도해 주세요.");
+    }
+  }
+
+  if (loading) return <p>프로젝트를 불러오는 중...</p>;
+  if (error && !project) return <p role="alert">{error}</p>;
+  if (!project) return <p role="alert">{NOT_FOUND_MESSAGE}</p>;
+
+  return (
+    <section>
+      <Link to="/projects" className="text-sm">프로젝트 목록</Link>
+      <div className="mt-4 flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">{project.name}</h1>
+          {project.description && <p className="mt-2 text-gray-600">{project.description}</p>}
+        </div>
+        {user?.role === "ADMIN" && (
+          <div className="flex gap-2">
+            <button type="button" onClick={openAccessPanel} className="rounded border px-3 py-2 text-sm">접근권한 관리</button>
+          </div>
+        )}
+      </div>
+      {error && <p role="alert" className="mt-4 text-sm text-red-600">{error}</p>}
+      {showAccessPanel && user?.role === "ADMIN" && (
+        <ActionDrawer
+          title="접근권한 관리"
+          onClose={closeAccessPanel}
+          footer={<button type="submit" form="grant-access-form" className="w-full rounded bg-black px-3 py-2 text-sm text-white">접근권한 부여</button>}
+        >
+          {accessError && <p role="alert" className="mb-4 text-sm text-red-600">{accessError}</p>}
+          <form id="grant-access-form" onSubmit={grantAccess}>
+            <label htmlFor="access-email" className="text-sm font-medium">사용자 이메일</label>
+            <input id="access-email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} required className="mt-2 w-full rounded border px-3 py-2" />
+          </form>
+          <ul className="mt-6 space-y-2">
+            {accesses.map((access) => (
+              <li key={access.id} className="flex items-center justify-between gap-3 border-b pb-2 text-sm">
+                <span>{access.user_email}</span>
+                <button type="button" onClick={() => revokeAccess(access.user_id)} className="rounded border px-2 py-1">해제</button>
+              </li>
+            ))}
+          </ul>
+        </ActionDrawer>
+      )}
+    </section>
+  );
+}

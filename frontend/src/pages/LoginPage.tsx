@@ -1,12 +1,14 @@
 import { useState, FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
-import { login } from "../api/auth";
+import { useLocation, useNavigate } from "react-router-dom";
+import { useAuth } from "../auth/useAuth";
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { signIn } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(location.state?.message ?? null);
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: FormEvent) {
@@ -14,14 +16,8 @@ export default function LoginPage() {
     setError(null);
     setLoading(true);
     try {
-      const data = await login(email, password);
-      localStorage.setItem("access_token", data.access_token);
-      localStorage.setItem("role", data.role);
-      if (data.role === "ADMIN") {
-        navigate("/admin/projects");
-      } else {
-        navigate("/catalog");
-      }
+      await signIn(email, password);
+      navigate("/projects", { replace: true });
     } catch {
       setError("이메일 또는 비밀번호가 올바르지 않습니다.");
     } finally {
@@ -36,8 +32,11 @@ export default function LoginPage() {
         <p className="text-center text-sm text-gray-500">KISA 개발보안가이드 기반 SAST</p>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">이메일</label>
+            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+              이메일
+            </label>
             <input
+              id="email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -47,8 +46,11 @@ export default function LoginPage() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">비밀번호</label>
+            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+              비밀번호
+            </label>
             <input
+              id="password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
