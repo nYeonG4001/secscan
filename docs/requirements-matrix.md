@@ -30,7 +30,7 @@
 | SFR-011 | 초기 분석 대상 지원 | E3-06, E4-02, E7-06 | Java, JavaScript, Python 분석 | 언어별 샘플 테스트 | 언어별 탐지 결과 | 미착수 |
 | SFR-012 | 진단 항목 등록 | E1-06, E5-03, E6-11 | 공통 진단 항목 등록 구조 | 항목 등록 테스트 | 신규 항목 등록 결과 | 설계 완료 |
 | SFR-013 | 개발보안 가이드 진단 기준 카탈로그 | E1-06, E6-06 | KISA 49개 카탈로그 | 카탈로그 테스트 | 카탈로그 목록 화면 | 진행 |
-| SFR-014 | 분석 결과 표준화 | E1-05, E5-02 | 공통 결과 필드와 정규화 | 결과 표준화 테스트 | 결과 JSON과 상세 화면 | 진행 |
+| SFR-014 | 분석 결과 표준화 | E1-05, E5-02 | 공통 결과 필드와 정규화 | 결과 표준화 테스트 | E1-05 완료(2026-08-27): Finding에 `criterion_id`, `evidence`, `recommendation`, `raw_result` 추가로 완료 조건의 공통 필드(항목 식별자·명칭, 기준 식별자, 언어, 심각도, 신뢰도, 위치, 메시지, 근거, 권고, 원본 결과)를 모두 갖춤. 실제 정규화 로직은 E5-02 잔여 | 진행 |
 | SFR-015 | 분석 실행 상태 관리 | E1-04, E4-04, E4-07, E4-08, E6-02 | 대기, 진행, 완료, 실패 상태 | 상태 전환 테스트 | E1-04 완료(2026-08-27): `ck_analyses_status` 체크 제약으로 PENDING/RUNNING/COMPLETED/FAILED만 허용, `test_analysis_schema.py`로 허용·거부 값 검증. 실제 상태 전환 강제(PENDING→RUNNING 등)와 화면은 E4/E6 잔여 | 진행 |
 | SFR-016 | 분석 결과 조회 | E5-07, E5-08, E6-01, E6-04 | 이력, 목록, 상세 조회 | 결과 조회 테스트 | 결과 목록과 상세 | 진행 |
 | SFR-017 | 진단 결과 검색 및 필터 | E6-03 | 심각도 등 주요 속성 필터 | 필터 테스트 | 필터 결과 화면 | 설계 완료 |
@@ -44,9 +44,9 @@
 | DAR-003 | 프로젝트 데이터 | E1-02, E1-08, E1-09 | 프로젝트 기본 필드와 시각 | 프로젝트 데이터 테스트 | E1-02 완료(2026-08-27): `test_project_api.py`, `test_migrations.py`(0002→0003 업그레이드·다운그레이드) 전부 통과, ruff 통과, Postgres 실제 upgrade/downgrade 검증. ERD(`docs/erd.md`)와 실제 스키마(`0003_project_fields.py`) 일치. E1-09(전체 모델·API 계약 테스트)는 잔여 | 진행 |
 | DAR-004 | 프로젝트 권한 데이터 | E1-03, E1-09, E2-06, E2-07 | 사용자와 프로젝트 접근 관계 | 관계 무결성 테스트 | E1-03 완료(2026-08-27): `test_project_access_model.py` 5개 전부 통과(생성, project/user/grantor 관계 로드, 중복 등록 IntegrityError, 사용자·프로젝트 다대다 조합 확인), ruff 통과. `project_accesses`는 마이그레이션 0001에 이미 존재해 신규 리비전 불필요. E1-09(전체 계약 테스트)는 잔여 | 진행 |
 | DAR-005 | 분석 실행 데이터 | E1-04, E1-09, E4-04, E4-06 | 프로젝트, 엔진, 언어, 상태, 시각, 오류, 요약 | 분석 데이터 테스트 | E1-04 완료(2026-08-27): `engine`, `analyzed_languages`, `source_snapshot_location`, `error_code`, `summary` 필드 추가(0004 마이그레이션). 프로젝트별 PENDING/RUNNING 동시 1건 제한은 `uq_analyses_project_active` partial unique index로 DB 레벨 강제(앱 레벨 체크 대신 채택). `test_analysis_schema.py` 9개 전부 통과. E1-09는 잔여 | 진행 |
-| DAR-006 | 진단 결과 데이터 | E1-05, E1-09, E5-04, E5-05, E5-06 | 진단 항목, 기준, 위치, 근거, 권고, 원본 결과 | 결과 저장 테스트 | Finding 레코드와 응답 | 진행 |
+| DAR-006 | 진단 결과 데이터 | E1-05, E1-09, E5-04, E5-05, E5-06 | 진단 항목, 기준, 위치, 근거, 권고, 원본 결과 | 결과 저장 테스트 | E1-05 완료(2026-08-27): `test_finding_schema.py` 4개 전부 통과(정상 저장, 미매핑 결과의 `kisa_code`/`criterion_id` NULL과 나머지 필드 정상 저장, 스냅샷 불변성, 스키마 필드). 0005 마이그레이션으로 `criterion_id`/`evidence`/`recommendation`/`raw_result` 추가. E1-09는 잔여 | 진행 |
 | DAR-007 | 진단 기준 데이터 | E1-06, E1-09, E6-06, E6-07 | 식별자, 분류, 항목 번호, 참조 정보, 활성 여부, 심각도 | 카탈로그 데이터 테스트 | 카탈로그 레코드 | 진행 |
-| DAR-008 | 분석 시점 이력 보존 | E1-04, E1-05, E1-09, E5-06 | 분석 시점 진단 정보 스냅샷 | 스냅샷 테스트 | E1-04 완료(2026-08-27): `Analysis.analyzed_languages`가 생성 시점 언어 목록을 스냅샷으로 보존하고 이후 `Project.target_languages` 변경에 영향받지 않음을 `test_analyzed_languages_snapshot_is_independent_of_project_target_languages`로 검증. Finding 카탈로그 스냅샷은 E1-05 잔여 | 진행 |
+| DAR-008 | 분석 시점 이력 보존 | E1-04, E1-05, E1-09, E5-06 | 분석 시점 진단 정보 스냅샷 | 스냅샷 테스트 | E1-04, E1-05 완료(2026-08-27): `Analysis.analyzed_languages`(E1-04)에 이어 `Finding.criterion_id`/`recommendation`(E1-05)도 정규화 시점 스냅샷으로 저장. `test_finding_snapshot_is_independent_of_catalog_changes`로 KisaCatalog 값 변경 후에도 Finding 값이 그대로임을 검증. E1-09는 잔여 | 진행 |
 | DAR-009 | 구조화된 부가정보 | E1-04, E1-05, E1-09, E5-06 | 분석 요약과 원본 결과 JSON | JSON 보존 테스트 | E1-04 완료(2026-08-27): `Analysis.summary`(JSONB) 필드 추가, 구조화된 dict 저장·조회를 `test_analysis_can_be_created_with_all_new_fields`로 검증. `raw_result`는 기존 필드 유지. Finding 쪽 구조화 데이터는 E1-05 잔여 | 진행 |
 | DAR-010 | 데이터 관계 무결성 | E1-03, E1-08, E1-09 | 사용자, 프로젝트, 분석, 결과 관계 | FK와 삭제 정책 테스트 | E1-03 완료(2026-08-27): `project_accesses`의 FK(project_id, user_id, granted_by)와 (project_id, user_id) UNIQUE 제약을 실제 Postgres에서 중복 등록 거부로 검증. 접근권한 해제 시 프로젝트·분석 데이터 미삭제 정책은 삭제 API 자체가 MVP에 없어 데이터 보존이 구조적으로 보장됨(ADR 문서 확인) | 진행 |
 
@@ -85,7 +85,7 @@
 | QLT-001 | 모듈화 | E1-07, E1-09, E4-03, E5-02 | 인증, 프로젝트, 분석, 결과 모듈 분리 | 모듈 경계 검토 | 패키지 구조와 리뷰 | 설계 완료 |
 | QLT-002 | 진단 항목 독립성 | E5-03, E7-06 | 진단 항목별 독립 추가와 테스트 | 항목별 테스트 | 신규 항목 추가 기록 | 설계 완료 |
 | QLT-003 | 확장성 | E4-02, E5-02 | 추가 언어와 기준 확장 구조 | 확장성 테스트 | 확장 작업 결과 | 설계 완료 |
-| QLT-004 | 결과 일관성 | E5-02, E5-07 | 공통 위치, 심각도, 신뢰도, 근거 표현 | 결과 일관성 테스트 | 언어별 결과 비교 | 설계 완료 |
+| QLT-004 | 결과 일관성 | E1-05, E5-02, E5-07 | 공통 위치, 심각도, 신뢰도, 근거 표현 | 결과 일관성 테스트 | E1-05 진행(2026-08-27): Finding에 언어·소스 무관 공통 필드(위치, 심각도, 신뢰도, `evidence`)가 모델 레벨로 확정됨. 언어별 실제 결과 비교는 E5-02/E5-07 잔여 | 진행 |
 | QLT-005 | 데이터 정합성 | E1-08, E5-06 | 프로젝트, 분석, 결과, 기준 관계와 언어 일관성 | 정합성 테스트 | 저장과 조회 비교 | 설계 완료 |
 
 ## 등록 규칙
