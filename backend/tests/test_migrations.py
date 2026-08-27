@@ -40,6 +40,13 @@ def _project_columns() -> set:
     return {column["name"] for column in inspector.get_columns("projects")}
 
 
+def _analysis_columns() -> set:
+    inspector = inspect(engine)
+    if "analyses" not in inspector.get_table_names():
+        return set()
+    return {column["name"] for column in inspector.get_columns("analyses")}
+
+
 def _reset_schema() -> None:
     # Base.metadata.drop_all() only knows about ORM-mapped tables — it leaves
     # Alembic's own alembic_version bookkeeping table behind. If that survives,
@@ -132,4 +139,68 @@ def test_project_upgrade_is_reapplicable_after_downgrade(alembic_config):
         "target_languages",
         "source_location",
         "updated_at",
+    } <= columns
+
+
+def test_upgrade_head_adds_analysis_execution_fields(alembic_config):
+    command.upgrade(alembic_config, "head")
+
+    columns = _analysis_columns()
+    assert {
+        "engine",
+        "analyzed_languages",
+        "source_snapshot_location",
+        "error_code",
+        "summary",
+    } <= columns
+
+
+def test_upgrade_head_creates_analysis_status_check_constraint(alembic_config):
+    command.upgrade(alembic_config, "head")
+
+    inspector = inspect(engine)
+    constraint_names = {
+        c["name"] for c in inspector.get_check_constraints("analyses")
+    }
+    assert "ck_analyses_status" in constraint_names
+
+
+def test_upgrade_head_creates_active_analysis_partial_unique_index(alembic_config):
+    command.upgrade(alembic_config, "head")
+
+    inspector = inspect(engine)
+    index_names = {ix["name"] for ix in inspector.get_indexes("analyses")}
+    assert "uq_analyses_project_active" in index_names
+
+
+def test_downgrade_to_0003_removes_analysis_execution_fields(alembic_config):
+    command.upgrade(alembic_config, "head")
+    command.downgrade(alembic_config, "0003")
+
+    columns = _analysis_columns()
+    assert columns == {
+        "id",
+        "project_id",
+        "executed_by",
+        "status",
+        "created_at",
+        "started_at",
+        "completed_at",
+        "error_message",
+        "raw_result",
+    }
+
+
+def test_analysis_upgrade_is_reapplicable_after_downgrade(alembic_config):
+    command.upgrade(alembic_config, "head")
+    command.downgrade(alembic_config, "0003")
+    command.upgrade(alembic_config, "head")
+
+    columns = _analysis_columns()
+    assert {
+        "engine",
+        "analyzed_languages",
+        "source_snapshot_location",
+        "error_code",
+        "summary",
     } <= columns
