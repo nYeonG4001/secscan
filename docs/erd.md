@@ -17,6 +17,9 @@ erDiagram
         string email
         string password_hash
         string role "ADMIN or USER"
+        boolean active "default true"
+        datetime created_at
+        datetime updated_at
     }
     PROJECT {
         int id PK
@@ -84,6 +87,8 @@ erDiagram
         text recommendation "기본 조치 권고"
     }
 ```
+
+`USER.active`가 `false`인 계정은 새 로그인을 할 수 없고, 이미 발급된 토큰으로 보호 API를 요청해도 인증에 실패한다. 계정 비활성화 처리의 상세 정책은 ADR-013을 따른다.
 
 `PROJECT_ACCESS(project_id, user_id)` UNIQUE 제약.
 
