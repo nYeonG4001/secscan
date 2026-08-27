@@ -3,7 +3,7 @@ from typing import Optional
 from pydantic import BaseModel
 
 
-class FindingOut(BaseModel):
+class FindingUserOut(BaseModel):
     id: int
     analysis_id: int
     kisa_code: Optional[str] = None
@@ -20,7 +20,10 @@ class FindingOut(BaseModel):
     # ADR-007 snapshot field
     recommendation: Optional[str] = None
     code_snippet: Optional[str] = None
-    # ADR-009: admin-only; role-based response separation is E1-07's job
-    raw_result: Optional[dict] = None
 
     model_config = {"from_attributes": True}
+
+
+class FindingAdminOut(FindingUserOut):
+    # ADR-009: admin-only field
+    raw_result: Optional[dict] = None
