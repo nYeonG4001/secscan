@@ -75,7 +75,7 @@ erDiagram
     KISA_CATALOG {
         string kisa_code PK
         string criterion_id
-        string item_number
+        int item_number
         string category
         string name
         text description
