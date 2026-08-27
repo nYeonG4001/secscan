@@ -33,6 +33,13 @@ def _user_columns() -> set:
     return {column["name"] for column in inspector.get_columns("users")}
 
 
+def _project_columns() -> set:
+    inspector = inspect(engine)
+    if "projects" not in inspector.get_table_names():
+        return set()
+    return {column["name"] for column in inspector.get_columns("projects")}
+
+
 def _reset_schema() -> None:
     # Base.metadata.drop_all() only knows about ORM-mapped tables — it leaves
     # Alembic's own alembic_version bookkeeping table behind. If that survives,
@@ -90,3 +97,39 @@ def test_downgrade_to_base_drops_all_tables(alembic_config):
     # it stays behind (empty) even at the base revision.
     app_tables = set(inspector.get_table_names()) - {"alembic_version"}
     assert app_tables == set()
+
+
+def test_upgrade_head_adds_project_fields(alembic_config):
+    command.upgrade(alembic_config, "head")
+
+    columns = _project_columns()
+    assert {
+        "description",
+        "source_type",
+        "target_languages",
+        "source_location",
+        "updated_at",
+    } <= columns
+
+
+def test_downgrade_to_0002_removes_project_fields(alembic_config):
+    command.upgrade(alembic_config, "head")
+    command.downgrade(alembic_config, "0002")
+
+    columns = _project_columns()
+    assert columns == {"id", "name", "created_by", "created_at"}
+
+
+def test_project_upgrade_is_reapplicable_after_downgrade(alembic_config):
+    command.upgrade(alembic_config, "head")
+    command.downgrade(alembic_config, "0002")
+    command.upgrade(alembic_config, "head")
+
+    columns = _project_columns()
+    assert {
+        "description",
+        "source_type",
+        "target_languages",
+        "source_location",
+        "updated_at",
+    } <= columns
