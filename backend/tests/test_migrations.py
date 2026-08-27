@@ -47,6 +47,20 @@ def _analysis_columns() -> set:
     return {column["name"] for column in inspector.get_columns("analyses")}
 
 
+def _finding_columns() -> set:
+    inspector = inspect(engine)
+    if "findings" not in inspector.get_table_names():
+        return set()
+    return {column["name"] for column in inspector.get_columns("findings")}
+
+
+def _kisa_catalog_columns() -> set:
+    inspector = inspect(engine)
+    if "kisa_catalog" not in inspector.get_table_names():
+        return set()
+    return {column["name"] for column in inspector.get_columns("kisa_catalog")}
+
+
 def _reset_schema() -> None:
     # Base.metadata.drop_all() only knows about ORM-mapped tables — it leaves
     # Alembic's own alembic_version bookkeeping table behind. If that survives,
@@ -204,3 +218,57 @@ def test_analysis_upgrade_is_reapplicable_after_downgrade(alembic_config):
         "error_code",
         "summary",
     } <= columns
+
+
+def test_upgrade_head_adds_finding_snapshot_fields(alembic_config):
+    command.upgrade(alembic_config, "head")
+
+    columns = _finding_columns()
+    assert {"criterion_id", "evidence", "recommendation", "raw_result"} <= columns
+
+
+def test_upgrade_head_adds_kisa_catalog_snapshot_source_fields(alembic_config):
+    command.upgrade(alembic_config, "head")
+
+    columns = _kisa_catalog_columns()
+    assert {"criterion_id", "recommendation"} <= columns
+
+
+def test_downgrade_to_0004_removes_finding_snapshot_fields(alembic_config):
+    command.upgrade(alembic_config, "head")
+    command.downgrade(alembic_config, "0004")
+
+    finding_columns = _finding_columns()
+    assert finding_columns == {
+        "id",
+        "analysis_id",
+        "kisa_code",
+        "rule_name",
+        "severity",
+        "confidence",
+        "language",
+        "file_path",
+        "line",
+        "message",
+        "code_snippet",
+    }
+
+    catalog_columns = _kisa_catalog_columns()
+    assert catalog_columns == {
+        "kisa_code",
+        "category",
+        "name",
+        "description",
+        "default_severity",
+        "implementation_status",
+        "semgrep_rule_id",
+    }
+
+
+def test_finding_upgrade_is_reapplicable_after_downgrade(alembic_config):
+    command.upgrade(alembic_config, "head")
+    command.downgrade(alembic_config, "0004")
+    command.upgrade(alembic_config, "head")
+
+    columns = _finding_columns()
+    assert {"criterion_id", "evidence", "recommendation", "raw_result"} <= columns
