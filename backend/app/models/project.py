@@ -1,6 +1,8 @@
 from datetime import datetime
+from typing import Optional
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
@@ -9,12 +11,25 @@ from app.core.database import Base
 
 class Project(Base):
     __tablename__ = "projects"
+    __table_args__ = (UniqueConstraint("name", name="uq_projects_name"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     name: Mapped[str] = mapped_column(String, nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    # ADR-006: MVP source type is file upload; system-populated after source upload (E3).
+    source_type: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    # Auto-identified by the system from the uploaded source (ADR-006); not user input.
+    target_languages: Mapped[Optional[list]] = mapped_column(JSONB, nullable=True)
+    source_location: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     created_by: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
     )
 
     creator = relationship("User", back_populates="projects_created", foreign_keys=[created_by])

@@ -24,10 +24,10 @@ def get_current_user(
             detail="인증 토큰이 유효하지 않습니다.",
         )
     user = db.get(User, user_id)
-    if not user:
+    if not user or not user.active:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="사용자를 찾을 수 없습니다.",
+            detail="인증 토큰이 유효하지 않습니다.",
         )
     return user
 
