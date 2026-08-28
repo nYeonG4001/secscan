@@ -4,7 +4,7 @@
 
 **Decision**: Finding의 `line`은 시작 줄로 유지하고, nullable `end_line`을 추가한다. 두 값이 있으면 `end_line >= line`을 강제한다. Semgrep의 시작·끝 줄을 저장하며, 단일 줄 탐지는 같은 시작·끝 줄을 저장한다. `code_snippet`은 분석 시점 스냅샷에서 시작·끝 줄 전후 2줄을 읽어 만들고, 원본 코드 줄은 최대 20줄, 저장 텍스트는 최대 8 KiB로 제한한다. 범위가 길면 탐지 범위의 앞뒤를 보존하고 생략 표식을 넣는다.
 
-코드 조각을 읽기 전 `snapshot_root / file_path`의 해석 경로가 스냅샷 루트 안에 있는지 다시 확인한다. 추출 실패는 Finding 저장이나 분석 완료를 실패시키지 않으며 `code_snippet`만 비운다. `message`는 엔진의 짧은 진단 설명을, `evidence`는 안전한 탐지 근거를 최대 2 KiB로 저장한다. 근거가 없으면 엔진 규칙 식별자와 상대 파일 범위로 짧은 대체 문구를 만든다. 매핑 결과의 `recommendation`은 KISA 카탈로그 값의 분석 시점 스냅샷이고, 미매핑 결과는 비운다.
+코드 조각을 읽기 전 `snapshot_root / file_path`의 해석 경로가 스냅샷 루트 안에 있는지 다시 확인한다. 추출 실패는 Finding 저장이나 분석 완료를 실패시키지 않으며 `code_snippet`만 비운다. `message`는 Semgrep `extra.message`의 짧은 진단 설명을 저장한다. `evidence`는 자체 규칙의 `extra.metadata.secscan_basis`를 최대 2 KiB로 저장하며, 이 값이 없으면 엔진 규칙 식별자와 상대 파일 범위로 짧은 대체 문구를 만든다. `extra.lines`와 `metavars`는 사용자용 근거로 사용하지 않고, 코드 조각은 분석 시점 스냅샷에서 별도로 만든다. 매핑 결과의 `recommendation`은 KISA 카탈로그 값의 분석 시점 스냅샷이고, 미매핑 결과는 비운다.
 
 권한 있는 USER와 ADMIN은 상대 경로, 줄 범위, 메시지, 탐지 근거, 제한된 코드 조각, 조치 권고를 조회한다. `raw_result`와 실행 로그는 기존 ADR-009에 따라 ADMIN 전용이다. 제한된 코드 조각은 전체 소스 탐색 또는 관리자 소스 뷰어 기능이 아니다.
 

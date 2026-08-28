@@ -6,7 +6,7 @@
 - 작성자: Codex
 - 관련 에픽: E4
 - 관련 요구사항: SEC-010, TST-004
-- 관련 PR 또는 커밋: 미커밋 E4 구현 작업
+- 관련 PR 또는 커밋: E4 구현 PR #30
 - 환경: Docker
 
 ## 문제 요약
@@ -56,14 +56,19 @@ ERROR: ResolutionImpossible
 
 ## 검증
 
-- [ ] 같은 재현 절차로 문제가 해결됨
-- [ ] 관련 단위 테스트 통과
-- [ ] 관련 통합 또는 화면 테스트 통과
-- [ ] 기존 기능 회귀 없음
-- [ ] 보안 영향 확인
+- [x] 같은 재현 절차로 문제가 해결됨
+- [x] 관련 단위 테스트 통과
+- [x] 관련 통합 또는 화면 테스트 통과
+- [x] 기존 기능 회귀 없음
+- [x] 보안 영향 확인
 
 ```text
-검증은 E4 Docker 이미지 재빌드와 전체 backend 테스트 뒤 갱신한다.
+2026-08-28 검증 결과:
+
+- Alembic `upgrade head → downgrade base → upgrade head`가 0007에서 성공
+- backend 전체 pytest 195개와 `ruff check app tests` 통과
+- frontend lint, 30개 Vitest, typecheck, production build 통과
+- Docker에서 Semgrep OSS 1.95.0, non-root UID 999, named volume 쓰기, Compose 1.5 GiB 제한 확인
 ```
 
 ## 남은 위험과 후속 작업
@@ -76,4 +81,4 @@ ERROR: ResolutionImpossible
 
 - 로그 경로: Docker build 출력
 - 화면 캡처: 해당 없음
-- 관련 커밋: 미커밋 E4 구현 작업
+- 관련 커밋: E4 구현 PR #30

@@ -4,7 +4,9 @@
 
 **Decision**: `KISA_RULE_MAPPING` 테이블을 추가한다. 이 테이블은 `id`, `engine`, `engine_rule_id`, `kisa_code`를 저장하고, `UNIQUE(engine, engine_rule_id)`와 `KISA_CATALOG.kisa_code` 외래키를 가진다. 여러 매핑 행이 하나의 KISA 항목을 참조할 수 있지만, 하나의 엔진 규칙은 최대 하나의 KISA 항목에만 연결된다.
 
-기존 `KISA_CATALOG.semgrep_rule_id`는 E5 migration에서 제거한다. 현재 이 필드를 노출하는 `CatalogItemOut`에서 제거하며, 생성·수정 스키마에는 매핑 필드를 추가하지 않는다. 카탈로그 API는 매핑 필드를 제공하지 않는다. 매핑은 관리자 UI나 공개 API로 임의 변경하지 않고, 고정 Semgrep 규칙과 함께 코드 리뷰 PR의 시드 또는 버전 관리 데이터로 갱신한다. E5-03은 E4의 고정 CLI와 규칙 출력에서 실제 `engine_rule_id`를 확인한 뒤 해당 데이터를 추가한다.
+기존 `KISA_CATALOG.semgrep_rule_id`는 E5 migration에서 제거한다. 현재 이 필드를 노출하는 `CatalogItemOut`에서 제거하며, 생성·수정 스키마에는 매핑 필드를 추가하지 않는다. 카탈로그 API는 매핑 필드를 제공하지 않는다. 매핑은 관리자 UI나 공개 API로 임의 변경하지 않고, 고정 Semgrep 규칙과 함께 코드 리뷰 PR의 시드 또는 버전 관리 데이터로 갱신한다. E5-03은 고정 YAML 파일을 직접 지정한 실제 출력 `check_id`만 시드에 사용한다.
+
+초기 매핑 시드는 `semgrep` 엔진의 `secscan.java.runtime-exec → KISA-005`(운영체제 명령어 삽입), `secscan.javascript.eval → KISA-002`(코드 삽입), `secscan.python.pickle-loads → KISA-043`(신뢰할 수 없는 데이터의 역직렬화)다. 세 항목은 현재 한정된 source-to-sink 패턴만 탐지하므로 카탈로그 구현 상태를 `부분 지원`으로 설정한다.
 
 **Alternatives**: KISA 카탈로그의 단일 `semgrep_rule_id` 유지, 다대다 허용 매핑 테이블, 엔진 규칙 하나를 하나의 KISA 항목에만 연결하는 다대일 매핑 테이블
 
