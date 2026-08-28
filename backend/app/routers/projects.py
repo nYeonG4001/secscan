@@ -1,6 +1,9 @@
+import logging
+import shutil
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile, status
+from fastapi.responses import JSONResponse
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -8,9 +11,12 @@ from app.core.database import get_db
 from app.core.deps import (
     get_current_user,
     get_project_for_current_user,
+    get_source_workspace,
+    get_upload_locks,
     require_admin,
     require_csrf,
 )
+from app.models.analysis import Analysis
 from app.models.project import Project, ProjectAccess
 from app.models.user import User
 from app.schemas.project import (
@@ -19,7 +25,20 @@ from app.schemas.project import (
     ProjectCreate,
     ProjectOut,
     ProjectUpdate,
+    SourceUploadOut,
 )
+from app.services.project_upload_lock import ProjectUploadLocks, UploadInProgressError
+from app.services.source_archive import (
+    NoSupportedSourceError,
+    SourceArchiveError,
+    SourceArchiveLimitExceededError,
+    SourceArchiveTooLargeError,
+    UnsafeSourceArchiveError,
+    extract_source_archive,
+)
+from app.services.source_workspace import SourceWorkspace
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 
@@ -175,3 +194,100 @@ def revoke_access(
         raise HTTPException(status_code=404, detail="프로젝트 접근권한을 찾을 수 없습니다.")
     db.delete(access)
     db.commit()
+
+
+@router.put("/{project_id}/source", response_model=SourceUploadOut)
+def upload_source(
+    project_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user=Depends(require_admin),
+    _: None = Depends(require_csrf),
+    workspace: SourceWorkspace = Depends(get_source_workspace),
+    upload_locks: ProjectUploadLocks = Depends(get_upload_locks),
+):
+    project = db.get(Project, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="프로젝트를 찾을 수 없습니다.")
+
+    active_analysis = (
+        db.query(Analysis)
+        .filter(
+            Analysis.project_id == project_id,
+            Analysis.status.in_(["PENDING", "RUNNING"]),
+        )
+        .first()
+    )
+    if active_analysis:
+        return JSONResponse(status_code=409, content={"code": "ANALYSIS_ACTIVE"})
+
+    try:
+        with upload_locks.acquire(project_id):
+            return _process_source_upload(project, file, workspace, db)
+    except UploadInProgressError:
+        return JSONResponse(status_code=409, content={"code": "UPLOAD_IN_PROGRESS"})
+
+
+def _process_source_upload(
+    project: Project,
+    file: UploadFile,
+    workspace: SourceWorkspace,
+    db: Session,
+) -> SourceUploadOut | JSONResponse:
+    staging_dir = workspace.create_staging_directory()
+    promoted_location: str | None = None
+
+    try:
+        result = extract_source_archive(file.file, staging_dir)
+        promoted_location = workspace.promote_staging_directory(project.id, staging_dir)
+
+        project.source_type = "FILE_UPLOAD"
+        project.target_languages = list(result.languages)
+        project.source_location = promoted_location
+
+        try:
+            db.commit()
+        except Exception:
+            db.rollback()
+            _cleanup_promoted_location(workspace, promoted_location)
+            promoted_location = None
+            logger.exception(
+                "DB commit failed during source upload for project %d", project.id
+            )
+            return JSONResponse(status_code=500, content={"code": "INTERNAL_ERROR"})
+
+        return SourceUploadOut(
+            project_id=project.id,
+            source_status="REGISTERED",
+            target_languages=list(result.languages),
+        )
+
+    except SourceArchiveTooLargeError:
+        return JSONResponse(status_code=413, content={"code": "ARCHIVE_TOO_LARGE"})
+    except SourceArchiveLimitExceededError:
+        return JSONResponse(status_code=422, content={"code": "ARCHIVE_LIMIT_EXCEEDED"})
+    except UnsafeSourceArchiveError:
+        return JSONResponse(status_code=422, content={"code": "UNSAFE_ARCHIVE"})
+    except NoSupportedSourceError:
+        return JSONResponse(status_code=422, content={"code": "NO_SUPPORTED_SOURCE"})
+    except SourceArchiveError:
+        logger.exception("Archive validation error for project %d", project.id)
+        return JSONResponse(status_code=500, content={"code": "INTERNAL_ERROR"})
+    except Exception:
+        logger.exception(
+            "Unexpected error during source upload for project %d", project.id
+        )
+        if promoted_location:
+            _cleanup_promoted_location(workspace, promoted_location)
+        return JSONResponse(status_code=500, content={"code": "INTERNAL_ERROR"})
+    finally:
+        workspace.cleanup_staging_directory(staging_dir)
+
+
+def _cleanup_promoted_location(workspace: SourceWorkspace, location: str) -> None:
+    try:
+        path = workspace.resolve_source_location(location)
+        if path.is_dir():
+            shutil.rmtree(path)
+    except Exception:
+        logger.exception("Failed to cleanup promoted source at %s", location)

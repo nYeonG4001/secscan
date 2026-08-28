@@ -9,6 +9,8 @@ class Settings(BaseSettings):
     SESSION_COOKIE_NAME: str = "secscan_session"
     CSRF_COOKIE_NAME: str = "secscan_csrf"
     SESSION_COOKIE_SECURE: bool = True
+    STORAGE_ROOT: str = "storage"
+    STALE_WORKSPACE_RETENTION_HOURS: int = 24
 
     model_config = {"env_file": ".env"}
 
