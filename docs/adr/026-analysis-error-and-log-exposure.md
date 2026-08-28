@@ -4,7 +4,7 @@
 
 **Decision**: `ANALYSIS`에 관리자 전용 `execution_log` 텍스트 필드를 추가한다. 로그는 Semgrep 표준 오류와 실행 단계 정보만 저장하며, 최근 64 KiB를 초과하지 않게 제한한다. Semgrep은 분석 스냅샷 디렉터리를 현재 작업 디렉터리로 사용하고 상대 경로 `.`만 분석 대상으로 전달해, 절대 서버 경로가 처음부터 표준 오류에 나타나지 않도록 한다. 문자열 스크러빙은 저장 전 보조 방어로만 사용한다.
 
-실패 원인은 `ANALYSIS_TIMEOUT`, `ANALYSIS_RESOURCE_LIMIT`, `SOURCE_SNAPSHOT_FAILED`, `ENGINE_EXECUTION_FAILED`, `ENGINE_OUTPUT_INVALID`, `ANALYSIS_INTERRUPTED`의 안정적인 `error_code`로 기록한다. `error_message`에는 안전하게 정리한 상세 원인을, `raw_result`에는 구조화된 Semgrep JSON 결과를 분리해 저장한다.
+실패 원인은 `ANALYSIS_TIMEOUT`, `ANALYSIS_RESOURCE_LIMIT`, `SOURCE_SNAPSHOT_FAILED`, `ENGINE_EXECUTION_FAILED`, `ENGINE_OUTPUT_INVALID`, `ANALYSIS_INTERRUPTED`의 안정적인 `error_code`로 기록한다. `error_message`에는 안전하게 정리한 상세 원인을, `raw_result`에는 안전한 실행 메타데이터를 분리해 저장한다. 완료 분석의 Finding 원본 결과와 정규화 실패 시 전체 실패 처리는 ADR-034를 따른다.
 
 일반 사용자 응답에는 `FAILED` 상태와 “분석을 완료하지 못했습니다. 관리자에게 문의하세요.” 안내만 제공한다. 관리자 응답에는 `error_code`, `error_message`, 제한된 `execution_log`를 제공한다. 서버 내부 경로, 실행 명령, 환경변수, 업로드 원본 파일명은 저장과 모든 API 응답에서 제외한다.
 

@@ -11,6 +11,7 @@ erDiagram
     PROJECT ||--o{ ANALYSIS : contains
     ANALYSIS ||--o{ FINDING : produces
     KISA_CATALOG ||--o{ FINDING : classifies
+    KISA_CATALOG ||--o{ KISA_RULE_MAPPING : maps
 
     USER {
         int id PK
@@ -54,23 +55,25 @@ erDiagram
         text error_message
         text execution_log "관리자 전용, 최대 64 KiB 진단 로그"
         jsonb summary "분석 실행 요약"
-        jsonb raw_result "semgrep 원본 출력"
+        jsonb raw_result "안전한 실행 메타데이터, 관리자 전용"
     }
     FINDING {
         int id PK
         int analysis_id FK
+        string engine_rule_id "엔진 규칙 식별자, NOT NULL"
         string kisa_code FK
         string criterion_id "분석 시점 스냅샷, 미매핑이면 NULL"
         string rule_name "분석 시점 스냅샷, ADR-005"
-        string severity
-        string confidence
+        string severity "CRITICAL/HIGH/MEDIUM/LOW/UNKNOWN"
+        string confidence "HIGH/MEDIUM/LOW/UNKNOWN"
         string language
         string file_path
-        int line
+        int line "시작 줄"
+        int end_line "끝 줄, NULL 가능"
         string message
         text evidence
         text recommendation "분석 시점 스냅샷"
-        jsonb raw_result "진단 원본 결과"
+        jsonb raw_result "진단 원본 결과, 관리자 전용"
         text code_snippet
     }
     KISA_CATALOG {
@@ -81,11 +84,16 @@ erDiagram
         string name
         text description
         text reference_info
-        string default_severity
+        string default_severity "CRITICAL/HIGH/MEDIUM/LOW"
         boolean active
         string implementation_status "지원/부분 지원/미지원, ADR-011"
-        string semgrep_rule_id "NULL 가능"
         text recommendation "기본 조치 권고"
+    }
+    KISA_RULE_MAPPING {
+        int id PK
+        string engine
+        string engine_rule_id
+        string kisa_code FK
     }
 ```
 
@@ -111,7 +119,11 @@ erDiagram
 
 FINDING의 KISA 매핑 여부는 `kisa_code` 하나로 판단한다. 값이 있으면 KISA 매핑 결과이고, 값이 없으면 미매핑 결과다. API의 매핑 상태 필터값 `KISA_MAPPED`, `UNMAPPED`는 이 값에서 계산하며 별도 컬럼으로 저장하지 않는다. 미매핑 결과는 KISA 카탈로그 49개 항목에 추가하지 않는다.
 
+FINDING의 `engine_rule_id`는 분석 엔진이 부여한 규칙 식별자이며 비어 있을 수 없다. Semgrep 결과는 `check_id` 원문을 저장한다. KISA 매핑은 `KISA_RULE_MAPPING.engine`과 `engine_rule_id`가 분석 엔진·규칙과 같은지로 결정하며, `kisa_code`는 매핑 성공 결과에만 저장한다. `KISA_RULE_MAPPING(engine, engine_rule_id)`는 UNIQUE다.
+
 FINDING의 `criterion_id`는 KISA 카탈로그의 기준 식별자를 결과 정규화 시점에 복사한 값이다. 카탈로그의 기준 식별자가 이후 수정되어도 과거 진단 결과의 기준 식별자는 변경하지 않는다. 미매핑 결과는 `criterion_id`를 비워 둔다.
+
+FINDING의 `line`은 탐지 범위의 시작 줄이고 `end_line`은 끝 줄이다. `end_line`은 엔진이 범위 정보를 제공하지 않을 때만 비울 수 있으며, 두 값이 있으면 `end_line`은 `line`보다 작을 수 없다. 코드 조각은 분석 시점 소스 스냅샷에서 이 범위를 기준으로 추출한 제한된 문맥이며, 전체 소스 뷰어를 뜻하지 않는다.
 
 ## MVP 기능 ↔ 엔티티 매핑
 
