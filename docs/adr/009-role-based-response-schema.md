@@ -11,7 +11,7 @@ SEC-003과 SEC-009는 분석 오류 정보와 로그를 관리자 권한으로 �
 - 일반 사용자 응답: 상태, 생성 시각, 시작 시각, 완료 시각, 실행 요약, 일반적인 실패 안내
 - 관리자 응답: 일반 사용자 필드와 함께 `error_code`, `error_message`, 상세 실행 정보, 권한 있는 원본 결과 정보
 
-조건부 필드 마스킹보다 `AnalysisUserOut`과 `AnalysisAdminOut`처럼 명시적인 Pydantic 응답 모델을 사용한다. `error_code`, `error_message`, 실행 로그, `raw_result`는 일반 사용자 응답에서 제외한다. Finding의 `raw_result`도 관리자 전용 필드로 취급한다.
+조건부 필드 마스킹보다 `AnalysisUserOut`과 `AnalysisAdminOut`처럼 명시적인 Pydantic 응답 모델을 사용한다. `error_code`, `error_message`, 실행 로그, `raw_result`는 일반 사용자 응답에서 제외한다. Finding의 `raw_result`도 관리자 전용 필드로 취급한다. 반면 Finding의 `engine_rule_id`는 취약점 탐지 근거를 식별하는 공개 결과 필드이므로, 권한 있는 일반 사용자와 관리자 응답에 모두 포함한다.
 
 `source_snapshot_location`은 저장소 내부 위치를 나타내는 운영용 필드이므로 관리자와 일반 사용자를 포함한 어떤 API 응답에도 포함하지 않는다. 후속으로 관리자 소스 뷰어를 구현하더라도 분석 식별자를 기준으로 서버 안에서만 이 위치값을 사용한다.
 

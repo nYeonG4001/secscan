@@ -188,6 +188,8 @@ E1 작업 상세는 `docs/epic/e1-data-model.md`, E2 작업 상세는 `docs/epic
 
 ### E5. 결과 정규화·KISA 매핑·저장
 
+상세 결정과 작업 기준은 `docs/epic/e5-result-normalization.md`를 따른다.
+
 작업 번호:
 
 1. E5-01 외부 분석 결과 파서 구현
