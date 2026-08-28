@@ -323,7 +323,8 @@ SEC-005
 - `docs/adr/`: 설계 결정 기록
 - `docs/troubleshooting/`: 해결된 문제와 재현 방법 기록
 - `docs/templates/troubleshooting.md`: 트러블슈팅 기록 양식
-- `backend/semgrep-rules/THIRD_PARTY_NOTICES.md`: 고정 Semgrep 규칙 파일의 출처와 라이선스 기록
+- `backend/THIRD_PARTY_NOTICES.md`: Semgrep CLI 등 외부 구성요소의 출처, 버전, 라이선스 기록
+- `backend/semgrep-rules/RULES_PROVENANCE.md`: SecScan 자체 규칙의 규칙 ID, KISA/CWE/OWASP 근거, 지원 언어와 변경 사유 기록
 
 ## 9. AI 역할 분담
 
