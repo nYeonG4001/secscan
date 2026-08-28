@@ -21,13 +21,14 @@ E4는 E3에서 안전하게 등록한 현재 프로젝트 소스를 분석별 �
 
 - 상태: 결정 완료, 구현 전
 - 요구사항 매핑: SFR-008, SFR-010, SFR-011, DAR-005, TST-005, QLT-003, SEC-010
-- 결정과 근거: 백엔드 이미지에 포함한 고정 버전 Semgrep OSS CLI와 공식 `p/security-audit` 규칙 팩의 저장소 고정본을 사용한다. 규칙 자동 선택과 원격 규칙 팩 직접 참조는 실행 시점에 `rule_id`가 달라져 KISA 매핑과 기대 결과를 흔들 수 있으므로 사용하지 않는다. 규칙 고정본의 출처와 라이선스는 `backend/semgrep-rules/THIRD_PARTY_NOTICES.md`에 기록한다. 자세한 근거는 ADR-023을 따른다.
+- 결정과 근거: 백엔드 이미지에 포함한 고정 버전 Semgrep OSS CLI와 SecScan 자체 작성 규칙을 사용한다. 규칙 자동 선택과 원격 규칙 팩 직접 참조는 실행 시점에 `rule_id`가 달라져 KISA 매핑과 기대 결과를 흔들 수 있으므로 사용하지 않는다. 자체 규칙은 KISA/CWE/OWASP 공개 기준을 근거로 독자 작성하고, 규칙 ID와 근거는 `backend/semgrep-rules/RULES_PROVENANCE.md`에 기록한다. Semgrep CLI의 출처와 라이선스는 `backend/THIRD_PARTY_NOTICES.md`에 기록한다. 자세한 근거는 ADR-023을 따른다.
 - 완료 조건:
-  - Semgrep CLI 버전과 실행 규칙 고정본이 분석 메타데이터에 기록된다.
+  - Semgrep CLI 버전과 실행 자체 규칙 고정본 식별자가 분석 메타데이터에 기록된다.
   - Java, JavaScript, Python으로 감지된 소스만 Semgrep 분석 입력에 포함한다.
   - Semgrep 결과는 JSON으로 저장해 E5가 `rule_id`를 KISA 카탈로그와 연결할 수 있다.
-  - 규칙 파일 변경은 별도 PR, 라이선스 확인, 영향받는 기대 결과 테스트 갱신을 거친다.
-- 결정 필요: 고정할 Semgrep CLI 버전은 E4-01 구현 전에 호환성 검증 뒤 기록한다. Java의 추가 공식 규칙은 E5 매핑 결과를 근거로 판단한다.
+  - 자체 규칙 변경은 별도 PR, KISA/CWE/OWASP 근거 검토, 영향받는 기대 결과 테스트 갱신을 거친다.
+  - Semgrep 공식 또는 다른 제3자 규칙을 복사·변형하지 않는다.
+- 결정 필요: 고정할 Semgrep CLI 버전은 E4-01 구현 전에 호환성 검증 뒤 기록한다. Java의 추가 자체 규칙은 E5 매핑 결과를 근거로 판단한다.
 - 테스트: E4-09에서 고정 규칙 파일을 사용한 Java, JavaScript, Python 샘플의 예상 `rule_id`를 검증한다.
 
 ## E4-05 실행 시간과 자원 제한
@@ -117,4 +118,4 @@ E4는 E3에서 안전하게 등록한 현재 프로젝트 소스를 분석별 �
 
 ## 이후 작업
 
-- 구현 전 남은 확인: 고정할 Semgrep CLI 버전과 규칙 고정본 revision을 호환성·라이선스 확인 뒤 `THIRD_PARTY_NOTICES.md`에 기록한다.
+- 구현 전 남은 확인: 고정할 Semgrep CLI 버전을 호환성·라이선스 확인 뒤 `backend/THIRD_PARTY_NOTICES.md`에 기록하고, 최초 자체 규칙 ID와 KISA/CWE/OWASP 근거를 `backend/semgrep-rules/RULES_PROVENANCE.md`에 기록한다.
