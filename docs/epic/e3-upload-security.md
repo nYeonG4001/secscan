@@ -69,13 +69,13 @@ E3는 관리자만 ZIP 소스를 등록할 수 있게 하고, 신뢰할 수 없�
 | 자원 제한 | 제한 안의 ZIP 등록 | 원본 크기, 실제 압축 해제 누적 크기, 파일 수, 개별 파일 크기, 압축 비율 초과 | `backend/tests/test_upload_security.py` |
 | ZIP 구조 | 안전한 상대 경로 ZIP 등록 | ZIP Slip, 절대 경로, Windows 또는 UNC 경로, NUL 문자, 문자 단위 중복 경로, 대소문자만 다른 경로, 심볼릭 링크, 하드 링크 | `backend/tests/test_upload_security.py` |
 | 언어 감지 | 설정 파일과 문서를 포함한 지원 언어 소스 ZIP 등록 | 지원 소스 부재, TypeScript만 포함, 중첩 ZIP만 포함 | `backend/tests/test_source_language_detection.py` |
-| 작업영역 | 프로젝트별 현재 소스 경로 분리, 검증 뒤 원자적 교체, 서버 시작 시 오래된 임시 경로 정리 | 거부 또는 예외 뒤 임시 경로 부재, 기존 현재 소스 불변, 다른 프로젝트 경로 접근 불가 | `backend/tests/test_upload_workspace.py` |
+| 작업영역 | 새 내부 소스 경로 생성 뒤 DB commit으로 현재 `source_location` 갱신, 서버 시작 시 오래된 임시 및 비참조 소스 경로 정리 | DB commit 실패 뒤 새 소스 경로 정리, 이전 소스 유예 보존, API 응답에 내부 경로 미노출, 다른 프로젝트 경로 접근 불가 | `backend/tests/test_upload_workspace.py`, `backend/tests/test_source_upload_api.py` |
 | 활성 분석과 동시 업로드 | `COMPLETED`, `FAILED` 뒤 새 소스 등록 | `PENDING`, `RUNNING` 중 업로드 409과 `ANALYSIS_ACTIVE`, 첫 업로드 진행 중 두 번째 요청 409과 `UPLOAD_IN_PROGRESS`, 두 번째 요청의 임시 경로 미생성 | `backend/tests/test_source_upload_api.py`, `backend/tests/test_upload_workspace.py` |
 | 오류 응답 | 성공 응답에 감지 언어와 등록 상태만 포함 | 오류 응답에 안정적인 `code`만 포함하고 내부 경로와 원본 ZIP 항목명 미노출 | `backend/tests/test_source_upload_api.py`, `backend/tests/test_upload_security.py` |
 | 프론트 Drawer | ADMIN 파일 선택, 진행률, 성공, 수동 재시도, 취소 뒤 상태 갱신 | USER 비노출, 오류 코드별 짧은 문구, 취소와 실패 뒤 업로드 상태 정리 | `frontend/src/pages/SourceUploadDrawer.test.tsx` |
 
 - 자원 제한 테스트는 25 MB, 100 MB 같은 운영 기본값을 실제로 채우지 않는다. 테스트 전용 설정에서 더 작은 제한값을 주입해 같은 경계 동작을 빠르게 검증한다.
-- 보안 거부 테스트는 HTTP 상태만 확인하지 않는다. 거부 뒤 임시 작업영역이 없고 기존 현재 소스가 바뀌지 않았는지 함께 확인한다.
+- 보안 거부 테스트는 HTTP 상태만 확인하지 않는다. 거부 뒤 임시 작업영역이 없고 DB의 기존 `source_location`이 바뀌지 않았는지 함께 확인한다.
 - 증거: E3 구현 PR의 전체 백엔드, 프론트 테스트 로그와 각 보안 거부 응답
 
 ## E3-04, E3-05 ZIP 경로와 링크 검증
@@ -95,16 +95,17 @@ E3는 관리자만 ZIP 소스를 등록할 수 있게 하고, 신뢰할 수 없�
 
 - 상태: 설계 완료
 - 요구사항 매핑: SFR-007, SEC-007, SEC-008
-- 결정과 근거: 프로젝트의 현재 소스와 분석이 사용한 소스는 수명 주기가 다르다. 새 업로드가 과거 분석의 근거를 바꾸지 않도록 프로젝트 현재 소스, 분석별 스냅샷, 임시 검증 작업영역을 분리한다. 새 ZIP은 임시 경로에서 검증한 뒤 현재 소스로 원자적 교체하고, E4는 분석 생성 시 현재 소스를 분석별 스냅샷으로 복사한다. 자세한 근거는 ADR-017을 따른다.
+- 결정과 근거: 프로젝트의 현재 소스와 분석이 사용한 소스는 수명 주기가 다르다. 새 업로드가 과거 분석의 근거를 바꾸지 않도록 성공한 ZIP은 새 내부 소스 경로에 보관하고, DB transaction의 `source_location` 갱신으로 현재 소스를 원자적으로 바꾼다. 이전 내부 소스는 즉시 삭제하지 않고 유예 기간 뒤 정리한다. E4는 분석 생성 시 DB의 현재 소스를 분석별 스냅샷으로 복사한다. 자세한 근거는 ADR-017을 따른다.
 - 완료 조건:
-  - 사용자 입력 경로가 아닌 서버 관리 경로에 프로젝트별 현재 소스가 저장된다.
+  - 사용자 입력 경로가 아닌 서버 관리 경로에 성공한 업로드별 내부 소스가 저장된다.
   - 검증 중인 ZIP은 무작위 임시 경로에서만 처리된다.
-  - 성공한 새 소스만 프로젝트 현재 소스를 교체하며, 요청 종료 시 실패한 임시 경로는 남지 않는다.
-  - 서버 시작 시 기본 24시간보다 오래된 임시 경로를 정리한다.
+  - 새 내부 소스 경로 생성 뒤 DB transaction의 `source_location` commit이 현재 소스 변경의 유일한 원자성 경계다.
+  - DB commit 실패 뒤 새 내부 소스 경로와 요청 종료 시 실패한 임시 경로는 남지 않는다.
+  - 서버 시작 시 기본 24시간보다 오래된 임시 경로와 현재 `source_location`에 참조되지 않는 내부 소스 경로를 정리한다.
   - E4가 사용할 분석별 스냅샷 경로 생성 계약이 제공된다.
   - 프로젝트 현재 소스와 분석 스냅샷 경로는 API 응답에 포함되지 않는다.
 - 테스트: `backend/tests/test_upload_workspace.py`, E4 분석 스냅샷 테스트
-- 증거: 프로젝트별 저장 경로 분리, 실패 뒤 임시 경로 정리, 새 업로드 뒤 이전 분석 스냅샷 유지 확인
+- 증거: DB commit 실패 뒤 새 내부 소스 경로 정리, 유예 기간 뒤 비참조 이전 소스 경로 정리, 새 업로드 뒤 이전 분석 스냅샷 유지 확인
 
 ## E3-06 지원 소스 파일과 자동 언어 감지
 
