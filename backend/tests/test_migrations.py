@@ -170,8 +170,11 @@ def test_upgrade_head_adds_analysis_execution_fields(alembic_config):
     assert {
         "engine",
         "analyzed_languages",
+        "source_location",
         "source_snapshot_location",
+        "source_location",
         "error_code",
+        "execution_log",
         "summary",
     } <= columns
 
@@ -180,9 +183,7 @@ def test_upgrade_head_creates_analysis_status_check_constraint(alembic_config):
     command.upgrade(alembic_config, "head")
 
     inspector = inspect(engine)
-    constraint_names = {
-        c["name"] for c in inspector.get_check_constraints("analyses")
-    }
+    constraint_names = {c["name"] for c in inspector.get_check_constraints("analyses")}
     assert "ck_analyses_status" in constraint_names
 
 
@@ -222,6 +223,7 @@ def test_analysis_upgrade_is_reapplicable_after_downgrade(alembic_config):
         "engine",
         "analyzed_languages",
         "source_snapshot_location",
+        "source_location",
         "error_code",
         "summary",
     } <= columns
@@ -356,12 +358,14 @@ ERD_COLUMNS = {
         "engine",
         "analyzed_languages",
         "source_snapshot_location",
+        "source_location",
         "status",
         "created_at",
         "started_at",
         "completed_at",
         "error_code",
         "error_message",
+        "execution_log",
         "summary",
         "raw_result",
     },

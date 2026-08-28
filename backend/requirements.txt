@@ -9,3 +9,5 @@ email-validator==2.2.0
 bcrypt==4.0.1
 python-multipart==0.0.12
 PyJWT==2.9.0
+semgrep==1.95.0
+setuptools==80.9.0

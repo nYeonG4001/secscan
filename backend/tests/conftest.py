@@ -1,4 +1,6 @@
 import os
+import shutil
+from pathlib import Path
 
 import pytest
 from sqlalchemy.engine.url import make_url
@@ -24,9 +26,21 @@ if not parsed_test_database_url.database or not parsed_test_database_url.databas
 os.environ["DATABASE_URL"] = test_database_url
 os.environ.setdefault("SECRET_KEY", "test-secret-key")
 os.environ.setdefault("SESSION_COOKIE_SECURE", "false")
+os.environ.setdefault("STORAGE_ROOT", "/tmp/secscan-test-storage")
 
 from app import models  # noqa: E402, F401
 from app.core.database import Base, SessionLocal, engine  # noqa: E402
+
+
+@pytest.fixture(autouse=True)
+def clean_reserved_analysis_test_directories():
+    """Keep reset database IDs and filesystem snapshot reservations aligned."""
+    analyses_root = Path(os.environ["STORAGE_ROOT"]) / "analyses"
+    shutil.rmtree(analyses_root, ignore_errors=True)
+    try:
+        yield
+    finally:
+        shutil.rmtree(analyses_root, ignore_errors=True)
 
 
 @pytest.fixture

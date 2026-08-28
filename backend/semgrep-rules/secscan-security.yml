@@ -1,0 +1,27 @@
+rules:
+  - id: secscan.java.runtime-exec
+    languages: [java]
+    severity: ERROR
+    message: 외부 입력이 운영체제 명령 실행으로 이어지지 않도록 검증과 허용 목록을 적용하세요.
+    metadata:
+      secscan_basis: CWE-78, OWASP A03:2021
+    patterns:
+      - pattern: Runtime.getRuntime().exec($COMMAND)
+
+  - id: secscan.javascript.eval
+    languages: [javascript]
+    severity: ERROR
+    message: 신뢰할 수 없는 문자열을 eval로 실행하지 마세요.
+    metadata:
+      secscan_basis: CWE-95, OWASP A03:2021
+    patterns:
+      - pattern: eval($CODE)
+
+  - id: secscan.python.pickle-loads
+    languages: [python]
+    severity: ERROR
+    message: 신뢰할 수 없는 직렬화 데이터는 pickle로 역직렬화하지 마세요.
+    metadata:
+      secscan_basis: CWE-502, OWASP A08:2021
+    patterns:
+      - pattern: pickle.loads($DATA)

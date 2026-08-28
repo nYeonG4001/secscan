@@ -1,7 +1,11 @@
 from datetime import datetime
 from typing import List, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+
+
+class AnalysisCreate(BaseModel):
+    project_id: int = Field(gt=0)
 
 
 class AnalysisUserOut(BaseModel):
@@ -24,3 +28,4 @@ class AnalysisAdminOut(AnalysisUserOut):
     analyzed_languages: Optional[List[str]] = None
     error_code: Optional[str] = None
     error_message: Optional[str] = None
+    execution_log: Optional[str] = None

@@ -36,6 +36,9 @@ class Analysis(Base):
     analyzed_languages: Mapped[Optional[list]] = mapped_column(JSONB, nullable=True)
     # System-managed snapshot location; never included in any API response (ADR-009).
     source_snapshot_location: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    # Source location captured at request commit time. This internal field lets the
+    # worker copy exactly the source selected for the pending analysis.
+    source_location: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     status: Mapped[str] = mapped_column(
         String, nullable=False, default="PENDING"
     )  # PENDING/RUNNING/COMPLETED/FAILED
@@ -49,6 +52,8 @@ class Analysis(Base):
     # FAILED detail code (timeout, invalid file, engine error, ...); admin-only (ADR-009).
     error_code: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    # Recent, scrubbed execution diagnostics for ADMIN only (ADR-026).
+    execution_log: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     summary: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
     raw_result: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
 

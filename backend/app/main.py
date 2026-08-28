@@ -1,12 +1,13 @@
 import logging
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 from app.core.database import SessionLocal
-from app.core.deps import get_source_workspace
+from app.core.deps import get_analysis_executor, get_source_workspace
+from app.models.analysis import Analysis
 from app.models.project import Project
 from app.routers import analyses, auth, catalog, findings, projects
 
@@ -39,11 +40,26 @@ def health():
 
 
 @app.on_event("startup")
-def sweep_stale_workspaces() -> None:
+def recover_interrupted_analyses_and_sweep_stale_workspaces() -> None:
     retention = timedelta(hours=settings.STALE_WORKSPACE_RETENTION_HOURS)
     workspace = get_source_workspace()
     db = SessionLocal()
     try:
+        interrupted = (
+            db.query(Analysis)
+            .filter(Analysis.status.in_(["PENDING", "RUNNING"]))
+            .update(
+                {
+                    Analysis.status: "FAILED",
+                    Analysis.error_code: "ANALYSIS_INTERRUPTED",
+                    Analysis.error_message: "서버 중단으로 분석이 완료되지 않았습니다.",
+                    Analysis.execution_log: "서버 중단으로 분석이 완료되지 않았습니다.",
+                    Analysis.completed_at: datetime.now(timezone.utc),
+                },
+                synchronize_session=False,
+            )
+        )
+        db.commit()
         current_locations = [
             loc
             for (loc,) in db.query(Project.source_location)
@@ -62,3 +78,11 @@ def sweep_stale_workspaces() -> None:
             len(removed_staging),
             len(removed_sources),
         )
+    if interrupted:
+        logger.warning("Startup marked %d interrupted analyses as failed", interrupted)
+
+
+@app.on_event("shutdown")
+def shutdown_analysis_executor() -> None:
+    get_analysis_executor().shutdown()
+    get_analysis_executor.cache_clear()

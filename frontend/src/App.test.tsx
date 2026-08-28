@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -32,6 +32,7 @@ describe("authentication routes", () => {
 
   afterEach(() => {
     cleanup();
+    vi.useRealTimers();
     vi.unstubAllGlobals();
     window.history.pushState({}, "", "/");
   });
@@ -105,7 +106,7 @@ describe("authentication routes", () => {
 
     expect(await screen.findByRole("button", { name: "접근권한 관리" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "소스 등록" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "분석 실행" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "분석 실행" })).toBeDisabled();
   });
 
   it("opens an admin-only access drawer and closes it with Escape", async () => {
@@ -196,5 +197,79 @@ describe("authentication routes", () => {
 
     await waitFor(() => expect(login).toHaveBeenCalled());
     expect(setItem).not.toHaveBeenCalled();
+  });
+
+  it("polls active analysis status and stops polling after the page unmounts", async () => {
+    vi.useFakeTimers();
+    getCurrentUser.mockResolvedValue({ email: "admin@secscan.io", role: "ADMIN" });
+    api.get.mockResolvedValue({
+      data: {
+        id: 7, project_id: 1, executed_by: 1, status: "RUNNING", created_at: "2026-08-28T00:00:00Z",
+      },
+    });
+
+    const view = renderApp("/projects/1/analyses/7");
+    await act(async () => { await Promise.resolve(); });
+    expect(screen.getByText("상태: RUNNING")).toBeInTheDocument();
+    expect(api.get).toHaveBeenCalledTimes(1);
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(3_000); });
+    expect(api.get).toHaveBeenCalledTimes(2);
+    view.unmount();
+    await act(async () => { await vi.advanceTimersByTimeAsync(6_000); });
+    expect(api.get).toHaveBeenCalledTimes(2);
+    vi.useRealTimers();
+  });
+
+  it("keeps a polling transport error refreshable instead of rendering it as failed", async () => {
+    getCurrentUser.mockResolvedValue({ email: "admin@secscan.io", role: "ADMIN" });
+    api.get
+      .mockRejectedValueOnce({ response: { status: 500 } })
+      .mockResolvedValueOnce({
+        data: {
+          id: 7, project_id: 1, executed_by: 1, status: "COMPLETED", created_at: "2026-08-28T00:00:00Z",
+        },
+      });
+
+    renderApp("/projects/1/analyses/7");
+    expect(await screen.findByText("상태를 갱신하지 못했습니다. 분석은 계속 진행 중일 수 있습니다.")).toBeInTheDocument();
+    expect(screen.queryByText("분석을 완료하지 못했습니다. 관리자에게 문의하세요.")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "새로고침" }));
+    expect(await screen.findByText("상태: COMPLETED")).toBeInTheDocument();
+  });
+
+  it("returns to login when analysis polling receives 401", async () => {
+    getCurrentUser.mockResolvedValue({ email: "admin@secscan.io", role: "ADMIN" });
+    api.get.mockRejectedValue({ response: { status: 401 } });
+
+    renderApp("/projects/1/analyses/7");
+
+    expect(await screen.findByText(SESSION_EXPIRED_MESSAGE)).toBeInTheDocument();
+  });
+
+  it.each([
+    ["ANALYSIS_ACTIVE", { analysis_id: 8 }, "analysis"],
+    ["SOURCE_UPLOAD_IN_PROGRESS", {}, "upload"],
+  ])("handles project analysis conflict %s", async (code, data, expected) => {
+    getCurrentUser.mockResolvedValue({ email: "admin@secscan.io", role: "ADMIN" });
+    api.get
+      .mockResolvedValue({
+        data: {
+          id: 8, project_id: 1, executed_by: 1, status: "PENDING", created_at: "2026-08-28T00:00:00Z",
+        },
+      })
+      .mockResolvedValueOnce({ data: { id: 1, name: "등록 프로젝트", source_status: "REGISTERED" } })
+      .mockResolvedValueOnce({ data: [] });
+    api.post.mockRejectedValue({ response: { status: 409, data: { code, ...data } } });
+
+    renderApp("/projects/1");
+    fireEvent.click(await screen.findByRole("button", { name: "분석 실행" }));
+
+    if (expected === "analysis") {
+      expect(await screen.findByRole("heading", { name: "분석 상태" })).toBeInTheDocument();
+    } else {
+      expect(await screen.findByText("소스 업로드가 진행 중입니다. 완료 후 다시 시도해 주세요.")).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "등록 프로젝트" })).toBeInTheDocument();
+    }
   });
 });
