@@ -98,6 +98,8 @@ erDiagram
 
 `PROJECT.source_location`은 프로젝트 생성 시 비어 있을 수 있다. 파일 업로드가 성공하면 시스템이 관리하는 업로드 위치값을 기록하며, 사용자가 서버 경로를 직접 입력하지 않는다.
 
+`source_status`는 `PROJECT`에 저장하지 않는 API 응답용 계산값이다. 서버는 `source_location`이 비어 있으면 `NEEDS_UPLOAD`, 존재하면 `REGISTERED`를 반환한다. 내부 `source_location` 자체는 API 응답으로 제공하지 않는다.
+
 `ANALYSIS.engine`은 해당 실행에 사용한 분석 엔진 또는 방식을 기록한다. `ANALYSIS.analyzed_languages`는 실행 생성 시점에 확정한 언어 코드 목록이며, 이후 `PROJECT.target_languages`가 바뀌어도 변경하지 않는다.
 
 `ANALYSIS.source_snapshot_location`은 해당 분석이 사용한 소스 스냅샷의 시스템 관리 위치값이다. 분석 생성 시 업로드 검증이 끝난 `PROJECT.source_location`의 사본을 이 위치에 만들고, 그 위치를 기록한다. 이후 프로젝트 소스가 교체되거나 수정되어도 기존 분석의 스냅샷 위치는 변경하지 않는다. MVP 기간에는 분석 스냅샷을 자동 삭제하지 않는다. 이 내부 위치값은 API 응답으로 제공하지 않는다. 관리자 소스 뷰어는 MVP 완료 조건에 포함되지 않는 선택 작업이며, 이후 구현하게 되면 분석 식별자를 기준으로 서버 안에서만 이 값을 사용한다.
