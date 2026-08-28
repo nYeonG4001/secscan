@@ -153,6 +153,8 @@ E1 작업 상세는 `docs/epic/e1-data-model.md`, E2 작업 상세는 `docs/epic
 
 ### E4. 정적 분석 실행 파이프라인
 
+상세 결정과 작업 기준은 `docs/epic/e4-analysis-execution.md`를 따른다.
+
 작업 번호:
 
 1. E4-01 Semgrep 실행 방식과 컨테이너 환경 확정

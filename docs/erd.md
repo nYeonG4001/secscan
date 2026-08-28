@@ -52,6 +52,7 @@ erDiagram
         datetime completed_at
         string error_code
         text error_message
+        text execution_log "관리자 전용, 최대 64 KiB 진단 로그"
         jsonb summary "분석 실행 요약"
         jsonb raw_result "semgrep 원본 출력"
     }
@@ -102,9 +103,9 @@ erDiagram
 
 `ANALYSIS.engine`은 해당 실행에 사용한 분석 엔진 또는 방식을 기록한다. `ANALYSIS.analyzed_languages`는 실행 생성 시점에 확정한 언어 코드 목록이며, 이후 `PROJECT.target_languages`가 바뀌어도 변경하지 않는다.
 
-`ANALYSIS.source_snapshot_location`은 해당 분석이 사용한 소스 스냅샷의 시스템 관리 위치값이다. 분석 생성 시 업로드 검증이 끝난 `PROJECT.source_location`의 사본을 이 위치에 만들고, 그 위치를 기록한다. 이후 프로젝트 소스가 교체되거나 수정되어도 기존 분석의 스냅샷 위치는 변경하지 않는다. MVP 기간에는 분석 스냅샷을 자동 삭제하지 않는다. 이 내부 위치값은 API 응답으로 제공하지 않는다. 관리자 소스 뷰어는 MVP 완료 조건에 포함되지 않는 선택 작업이며, 이후 구현하게 되면 분석 식별자를 기준으로 서버 안에서만 이 값을 사용한다.
+`ANALYSIS.source_snapshot_location`은 해당 분석이 사용할 `analyses/{analysis_id}/source` 시스템 관리 위치값이다. 분석 생성 시 경로값을 먼저 기록하고, `RUNNING` 백그라운드 작업이 업로드 검증이 끝난 `PROJECT.source_location`의 전체 사본을 이 위치에 만든다. 이후 프로젝트 소스가 교체되거나 수정되어도 기존 분석의 스냅샷 위치는 변경하지 않는다. 서버 재시작 등으로 실패한 분석은 이 위치가 비어 있거나 일부만 채워질 수 있으며 새 분석 행으로 재실행한다. MVP 기간에는 완료된 분석 스냅샷을 자동 삭제하지 않는다. 이 내부 위치값은 API 응답으로 제공하지 않는다. 관리자 소스 뷰어는 MVP 완료 조건에 포함되지 않는 선택 작업이며, 이후 구현하게 되면 분석 식별자를 기준으로 서버 안에서만 이 값을 사용한다.
 
-`ANALYSIS.status`는 `PENDING`, `RUNNING`, `COMPLETED`, `FAILED` 중 하나다. `FAILED`의 세부 원인은 `error_code`에 저장하고, 상세 `error_message`와 실행 로그는 ADMIN에게만 제공한다.
+`ANALYSIS.status`는 `PENDING`, `RUNNING`, `COMPLETED`, `FAILED` 중 하나다. `FAILED`의 세부 원인은 `error_code`에 저장하고, 상세 `error_message`와 최대 64 KiB의 `execution_log`는 ADMIN에게만 제공한다. 서버 내부 경로, 실행 명령, 환경변수, 업로드 원본 파일명은 어떤 역할의 응답에도 포함하지 않는다.
 
 상태 전환은 `PENDING → RUNNING`, `PENDING → FAILED`, `RUNNING → COMPLETED`, `RUNNING → FAILED`만 허용한다. 완료 또는 실패한 분석을 다시 실행할 때는 기존 행을 변경하지 않고 새 분석 행을 만든다.
 
