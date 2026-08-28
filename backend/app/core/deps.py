@@ -1,4 +1,6 @@
 import hmac
+from functools import lru_cache
+from pathlib import Path
 
 import jwt
 from fastapi import Cookie, Depends, Header, HTTPException, status
@@ -7,6 +9,8 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.security import decode_access_token
+from app.services.project_upload_lock import ProjectUploadLocks
+from app.services.source_workspace import SourceWorkspace
 
 INVALID_SESSION_DETAIL = "인증 정보가 유효하지 않습니다."
 PROJECT_NOT_FOUND_DETAIL = "프로젝트를 찾을 수 없습니다."
@@ -101,3 +105,13 @@ def get_project_for_current_user(
     if not access:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=PROJECT_NOT_FOUND_DETAIL)
     return project
+
+
+@lru_cache
+def get_source_workspace() -> SourceWorkspace:
+    return SourceWorkspace(Path(settings.STORAGE_ROOT).resolve())
+
+
+@lru_cache
+def get_upload_locks() -> ProjectUploadLocks:
+    return ProjectUploadLocks()

@@ -7,11 +7,17 @@ import { useAuth } from "../auth/useAuth";
 import { ActionDrawer } from "../components/ActionDrawer";
 import { FORBIDDEN_MESSAGE, SESSION_EXPIRED_MESSAGE } from "../auth/RouteGuards";
 import { Project } from "./ProjectsPage";
+import { SourceUploadDrawer } from "./SourceUploadDrawer";
 
 interface ProjectAccess {
   id: number;
   user_id: number;
   user_email: string;
+}
+
+interface Analysis {
+  id: number;
+  status: "PENDING" | "RUNNING" | "COMPLETED" | "FAILED";
 }
 
 const NOT_FOUND_MESSAGE = "요청한 정보를 찾을 수 없습니다.";
@@ -27,6 +33,8 @@ export default function ProjectDetailPage() {
   const [project, setProject] = useState<Project | null>(null);
   const [accesses, setAccesses] = useState<ProjectAccess[]>([]);
   const [showAccessPanel, setShowAccessPanel] = useState(false);
+  const [showSourceUploadPanel, setShowSourceUploadPanel] = useState(false);
+  const [hasActiveAnalysis, setHasActiveAnalysis] = useState(false);
   const [email, setEmail] = useState("");
   const [accessError, setAccessError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -58,23 +66,40 @@ export default function ProjectDetailPage() {
     }
   }
 
-  useEffect(() => {
+  const loadProject = useCallback(async () => {
     if (!projectId) return;
+    try {
+      const response = await api.get<Project>(`/projects/${projectId}`);
+      setProject(response.data);
+    } catch (requestError) {
+      handleRequestError(requestError);
+      throw requestError;
+    }
+  }, [handleRequestError, projectId]);
+
+  const loadAnalysisStatus = useCallback(async () => {
+    if (!projectId) return;
+    try {
+      const response = await api.get<Analysis[]>("/analyses/", { params: { project_id: projectId } });
+      const analyses = Array.isArray(response.data) ? response.data : [];
+      setHasActiveAnalysis(analyses.some((analysis) => analysis.status === "PENDING" || analysis.status === "RUNNING"));
+    } catch (requestError) {
+      const status = errorStatus(requestError);
+      if (status === 401 || status === 403 || status === 404) handleRequestError(requestError);
+    }
+  }, [handleRequestError, projectId]);
+
+  useEffect(() => {
     let active = true;
-    api.get<Project>(`/projects/${projectId}`)
-      .then((response) => {
-        if (active) setProject(response.data);
-      })
-      .catch((requestError) => {
-        if (active) handleRequestError(requestError);
-      })
+    void Promise.all([loadProject(), loadAnalysisStatus()])
+      .catch(() => undefined)
       .finally(() => {
         if (active) setLoading(false);
       });
     return () => {
       active = false;
     };
-  }, [handleRequestError, projectId]);
+  }, [loadAnalysisStatus, loadProject]);
 
   async function openAccessPanel() {
     setAccessError(null);
@@ -86,6 +111,14 @@ export default function ProjectDetailPage() {
     setShowAccessPanel(false);
     setEmail("");
     setAccessError(null);
+  }
+
+  function closeSourceUploadPanel() {
+    setShowSourceUploadPanel(false);
+  }
+
+  async function refreshProjectAfterUpload() {
+    await Promise.all([loadProject(), loadAnalysisStatus()]);
   }
 
   async function grantAccess(event: FormEvent) {
@@ -135,11 +168,35 @@ export default function ProjectDetailPage() {
         </div>
         {user?.role === "ADMIN" && (
           <div className="flex gap-2">
+            <div>
+              <button
+                type="button"
+                onClick={() => setShowSourceUploadPanel(true)}
+                disabled={hasActiveAnalysis}
+                className="rounded border px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                소스 등록
+              </button>
+              {hasActiveAnalysis && <p className="mt-1 text-xs text-gray-600">분석이 끝난 뒤 업로드할 수 있습니다.</p>}
+            </div>
             <button type="button" onClick={openAccessPanel} className="rounded border px-3 py-2 text-sm">접근권한 관리</button>
           </div>
         )}
       </div>
+      <div className="mt-6 rounded border p-4">
+        <h2 className="text-sm font-semibold">소스 정보</h2>
+        <p className="mt-2 text-sm">상태: {project.source_status === "REGISTERED" ? "등록됨" : "등록 필요"}</p>
+        <p className="mt-1 text-sm text-gray-600">감지된 언어: {project.target_languages?.join(", ") || "없음"}</p>
+      </div>
       {error && <p role="alert" className="mt-4 text-sm text-red-600">{error}</p>}
+      {showSourceUploadPanel && user?.role === "ADMIN" && (
+        <SourceUploadDrawer
+          projectId={projectId ?? ""}
+          onClose={closeSourceUploadPanel}
+          onProjectRefresh={refreshProjectAfterUpload}
+          onRequestError={handleRequestError}
+        />
+      )}
       {showAccessPanel && user?.role === "ADMIN" && (
         <ActionDrawer
           title="접근권한 관리"

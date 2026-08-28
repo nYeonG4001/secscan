@@ -28,6 +28,12 @@ class ProjectOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class SourceUploadOut(BaseModel):
+    project_id: int
+    source_status: str
+    target_languages: List[str]
+
+
 class ProjectAccessCreate(BaseModel):
     email: EmailStr
 

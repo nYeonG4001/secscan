@@ -104,7 +104,7 @@ describe("authentication routes", () => {
     renderApp("/projects/1");
 
     expect(await screen.findByRole("button", { name: "접근권한 관리" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "소스 등록" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "소스 등록" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "분석 실행" })).not.toBeInTheDocument();
   });
 
@@ -124,6 +124,18 @@ describe("authentication routes", () => {
     expect(document.body.style.overflow).toBe("");
   });
 
+  it("disables source registration while the project has an active analysis", async () => {
+    getCurrentUser.mockResolvedValue({ email: "admin@secscan.io", role: "ADMIN" });
+    api.get
+      .mockResolvedValueOnce({ data: { id: 1, name: "분석 중 프로젝트", description: null } })
+      .mockResolvedValueOnce({ data: [{ id: 9, status: "RUNNING" }] });
+
+    renderApp("/projects/1");
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "소스 등록" })).toBeDisabled());
+    expect(screen.getByText("분석이 끝난 뒤 업로드할 수 있습니다.")).toBeInTheDocument();
+  });
+
   it("does not render the access-management drawer for USER", async () => {
     getCurrentUser.mockResolvedValue({ email: "user@secscan.io", role: "USER" });
     api.get.mockResolvedValue({ data: { id: 1, name: "사용자 프로젝트", description: null } });
@@ -132,6 +144,7 @@ describe("authentication routes", () => {
 
     expect(await screen.findByRole("heading", { name: "사용자 프로젝트" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "접근권한 관리" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "소스 등록" })).not.toBeInTheDocument();
     expect(screen.queryByRole("dialog", { name: "접근권한 관리" })).not.toBeInTheDocument();
   });
 
