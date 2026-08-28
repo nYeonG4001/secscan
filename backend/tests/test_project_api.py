@@ -60,7 +60,7 @@ def test_admin_can_create_project_with_only_name_and_description(client, db_sess
     assert body["created_by"] == admin.id
     assert body["source_type"] is None
     assert body["target_languages"] is None
-    assert body["source_location"] is None
+    assert "source_location" not in body
     assert body["created_at"] is not None
     assert body["updated_at"] is not None
 

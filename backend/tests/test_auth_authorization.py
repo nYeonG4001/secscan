@@ -69,6 +69,9 @@ def test_admin_can_call_every_current_admin_api_with_valid_csrf(client, db_sessi
     )
     assert created_project.status_code == 200
     project_id = created_project.json()["id"]
+    project = db_session.get(Project, project_id)
+    project.source_location = "projects/1/sources/0123456789abcdef0123456789abcdef"
+    db_session.commit()
 
     assert client.patch(
         f"/projects/{project_id}", json={"description": "수정됨"}, headers=headers
@@ -79,10 +82,9 @@ def test_admin_can_call_every_current_admin_api_with_valid_csrf(client, db_sessi
     ).status_code == 200
     assert client.post(
         "/analyses/",
-        data={"project_id": str(project_id)},
-        files={"file": ("source.zip", b"source", "application/zip")},
+        json={"project_id": project_id},
         headers=headers,
-    ).status_code == 200
+    ).status_code == 201
 
     catalog_payload = {
         "kisa_code": "ROLE-001",
@@ -121,8 +123,7 @@ def test_user_is_forbidden_from_every_current_admin_api_with_valid_csrf(client, 
         ),
         client.post(
             "/analyses/",
-            data={"project_id": str(project.id)},
-            files={"file": ("source.zip", b"source", "application/zip")},
+            json={"project_id": project.id},
             headers=headers,
         ),
         client.post(
@@ -163,8 +164,7 @@ def test_unauthenticated_requests_to_every_current_admin_api_return_401(client, 
         client.post(f"/projects/{project.id}/access", json={"email": member.email}),
         client.post(
             "/analyses/",
-            data={"project_id": str(project.id)},
-            files={"file": ("source.zip", b"source", "application/zip")},
+            json={"project_id": project.id},
         ),
         client.post(
             "/catalog/",

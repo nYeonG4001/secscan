@@ -3,6 +3,7 @@ import { FormEvent, useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { api } from "../api/auth";
+import { createAnalysis } from "../api/analyses";
 import { useAuth } from "../auth/useAuth";
 import { ActionDrawer } from "../components/ActionDrawer";
 import { FORBIDDEN_MESSAGE, SESSION_EXPIRED_MESSAGE } from "../auth/RouteGuards";
@@ -18,6 +19,11 @@ interface ProjectAccess {
 interface Analysis {
   id: number;
   status: "PENDING" | "RUNNING" | "COMPLETED" | "FAILED";
+}
+
+interface ConflictBody {
+  code?: string;
+  analysis_id?: number;
 }
 
 const NOT_FOUND_MESSAGE = "요청한 정보를 찾을 수 없습니다.";
@@ -38,6 +44,7 @@ export default function ProjectDetailPage() {
   const [email, setEmail] = useState("");
   const [accessError, setAccessError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [analysisStarting, setAnalysisStarting] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const handleRequestError = useCallback((requestError: unknown) => {
@@ -121,6 +128,29 @@ export default function ProjectDetailPage() {
     await Promise.all([loadProject(), loadAnalysisStatus()]);
   }
 
+  async function startAnalysis() {
+    if (!projectId) return;
+    setError(null);
+    setAnalysisStarting(true);
+    try {
+      const analysis = await createAnalysis(projectId);
+      navigate(`/projects/${projectId}/analyses/${analysis.id}`);
+    } catch (requestError) {
+      const status = errorStatus(requestError);
+      const body = (requestError as AxiosError<ConflictBody>).response?.data;
+      if (status === 401) handleRequestError(requestError);
+      else if (status === 409 && body?.code === "ANALYSIS_ACTIVE" && body.analysis_id) {
+        navigate(`/projects/${projectId}/analyses/${body.analysis_id}`);
+      } else if (status === 409 && body?.code === "SOURCE_UPLOAD_IN_PROGRESS") {
+        setError("소스 업로드가 진행 중입니다. 완료 후 다시 시도해 주세요.");
+      } else if (status === 403) setError(FORBIDDEN_MESSAGE);
+      else if (status === 404) setError(NOT_FOUND_MESSAGE);
+      else setError("분석 실행을 시작하지 못했습니다. 다시 시도해 주세요.");
+    } finally {
+      setAnalysisStarting(false);
+    }
+  }
+
   async function grantAccess(event: FormEvent) {
     event.preventDefault();
     if (!projectId) return;
@@ -178,6 +208,18 @@ export default function ProjectDetailPage() {
                 소스 등록
               </button>
               {hasActiveAnalysis && <p className="mt-1 text-xs text-gray-600">분석이 끝난 뒤 업로드할 수 있습니다.</p>}
+            </div>
+            <div>
+              <button
+                type="button"
+                onClick={() => void startAnalysis()}
+                disabled={project.source_status !== "REGISTERED" || hasActiveAnalysis || analysisStarting}
+                className="rounded border px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {analysisStarting ? "분석 요청 중..." : "분석 실행"}
+              </button>
+              {project.source_status !== "REGISTERED" && <p className="mt-1 text-xs text-gray-600">소스를 등록한 뒤 분석할 수 있습니다.</p>}
+              {hasActiveAnalysis && <p className="mt-1 text-xs text-gray-600">진행 중인 분석이 있습니다.</p>}
             </div>
             <button type="button" onClick={openAccessPanel} className="rounded border px-3 py-2 text-sm">접근권한 관리</button>
           </div>

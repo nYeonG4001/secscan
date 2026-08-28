@@ -20,7 +20,6 @@ class ProjectOut(BaseModel):
     description: Optional[str] = None
     source_type: Optional[str] = None
     target_languages: Optional[List[str]] = None
-    source_location: Optional[str] = None
     created_by: int
     created_at: datetime
     updated_at: datetime

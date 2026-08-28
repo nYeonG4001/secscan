@@ -71,6 +71,42 @@ class SourceWorkspace:
             raise ValueError("The source location is outside this workspace.") from exc
         return resolved
 
+    def reserve_analysis_snapshot(self, analysis_id: int) -> str:
+        analysis_id = _validate_project_id(analysis_id)
+        snapshot_parent = self._root / "analyses" / str(analysis_id)
+        snapshot_parent.mkdir(mode=0o750, parents=True, exist_ok=False)
+        return f"analyses/{analysis_id}/source"
+
+    def resolve_analysis_snapshot_location(self, snapshot_location: str) -> Path:
+        path = PurePosixPath(snapshot_location)
+        parts = path.parts
+        if (
+            path.is_absolute()
+            or len(parts) != 3
+            or parts[0] != "analyses"
+            or not parts[1].isdigit()
+            or int(parts[1]) <= 0
+            or parts[2] != "source"
+        ):
+            raise ValueError("The snapshot location is not managed by this workspace.")
+        candidate = self._root.joinpath(*parts)
+        try:
+            resolved = candidate.resolve(strict=False)
+            resolved.relative_to(self._root)
+        except ValueError as exc:
+            raise ValueError("The snapshot location is outside this workspace.") from exc
+        return resolved
+
+    def copy_source_to_snapshot(self, source_location: str, snapshot_location: str) -> Path:
+        source = self.resolve_source_location(source_location)
+        destination = self.resolve_analysis_snapshot_location(snapshot_location)
+        if not source.is_dir() or source.is_symlink():
+            raise ValueError("The captured source is not available.")
+        if destination.exists():
+            raise ValueError("The analysis snapshot already exists.")
+        shutil.copytree(source, destination, symlinks=False, copy_function=shutil.copy2)
+        return destination
+
     def cleanup_stale_staging_directories(
         self, retention: timedelta, *, now: datetime | None = None
     ) -> list[Path]:

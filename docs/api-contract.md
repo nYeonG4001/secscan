@@ -162,6 +162,14 @@ MVP에서는 `DELETE /api/projects/{project_id}`를 제공하지 않는다. 프�
 
 프로젝트의 현재 등록 소스를 기준으로 분석 작업을 생성한다. 분석은 `PENDING`, `RUNNING`, `COMPLETED`, `FAILED` 상태를 사용한다.
 
+요청 본문:
+
+```json
+{
+  "project_id": 12
+}
+```
+
 분석 행은 생성 시점의 분석 엔진 또는 방식과 실제 적용할 언어 목록을 함께 저장한다. 이 값은 이후 프로젝트의 분석 언어 설정이 바뀌어도 변경하지 않는다.
 
 `FAILED`의 세부 원인은 관리자 응답의 오류 코드와 상세 메시지로 제공한다. 일반 사용자 응답에는 일반적인 실패 안내만 제공한다.
@@ -182,6 +190,7 @@ MVP에서는 `DELETE /api/projects/{project_id}`를 제공하지 않는다. 프�
 |---:|---|---|
 | 409 | `ANALYSIS_ACTIVE` | 같은 프로젝트에 `PENDING` 또는 `RUNNING` 분석이 있음 |
 | 409 | `SOURCE_UPLOAD_IN_PROGRESS` | 같은 프로젝트의 소스 업로드가 진행 중임 |
+| 422 | `SOURCE_NOT_REGISTERED` | 분석할 등록 소스가 없음 |
 
 ### `GET /api/analyses?project_id={project_id}`
 

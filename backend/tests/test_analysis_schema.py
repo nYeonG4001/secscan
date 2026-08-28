@@ -37,6 +37,7 @@ def test_analysis_can_be_created_with_all_new_fields(db_session):
         status="FAILED",
         error_code="ENGINE_ERROR",
         error_message="semgrep exited with code 1",
+        execution_log="engine diagnostic",
         summary={"total_findings": 3},
     )
     db_session.add(analysis)
@@ -48,6 +49,7 @@ def test_analysis_can_be_created_with_all_new_fields(db_session):
     assert analysis.source_snapshot_location == "/var/secscan/snapshots/1"
     assert analysis.error_code == "ENGINE_ERROR"
     assert analysis.error_message == "semgrep exited with code 1"
+    assert analysis.execution_log == "engine diagnostic"
     assert analysis.summary == {"total_findings": 3}
 
 
@@ -154,4 +156,4 @@ def test_analysis_out_schemas_never_expose_source_snapshot_location():
 
 def test_analysis_admin_out_schema_includes_new_execution_fields():
     fields = AnalysisAdminOut.model_fields
-    assert {"engine", "analyzed_languages", "error_code", "summary"} <= set(fields)
+    assert {"engine", "analyzed_languages", "error_code", "execution_log", "summary"} <= set(fields)

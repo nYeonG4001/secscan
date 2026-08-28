@@ -115,3 +115,10 @@ def get_source_workspace() -> SourceWorkspace:
 @lru_cache
 def get_upload_locks() -> ProjectUploadLocks:
     return ProjectUploadLocks()
+
+
+@lru_cache
+def get_analysis_executor():
+    from app.services.analysis_executor import AnalysisExecutor
+
+    return AnalysisExecutor()

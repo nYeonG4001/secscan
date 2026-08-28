@@ -233,20 +233,19 @@ def test_create_analysis_missing_project_id_returns_422(client, db_session):
 
     response = client.post(
         "/analyses/",
-        files={"file": ("source.zip", b"dummy", "application/zip")},
+        json={},
         headers=auth_headers(token),
     )
 
     assert response.status_code == 422
 
 
-def test_create_analysis_missing_file_returns_422(client, db_session):
+def test_create_analysis_missing_body_returns_422(client, db_session):
     admin = create_user(db_session, email="admin@secscan.io", role="ADMIN")
     token = login(client, admin.email)
-    project = create_project(db_session, name="분석 API 필수값 테스트", created_by=admin.id)
 
     response = client.post(
-        "/analyses/", data={"project_id": project.id}, headers=auth_headers(token)
+        "/analyses/", json={}, headers=auth_headers(token)
     )
 
     assert response.status_code == 422
@@ -304,7 +303,6 @@ PROJECT_FIELDS = {
     "description",
     "source_type",
     "target_languages",
-    "source_location",
     "created_by",
     "created_at",
     "updated_at",
@@ -320,7 +318,13 @@ ANALYSIS_USER_FIELDS = {
     "completed_at",
     "summary",
 }
-ANALYSIS_ADMIN_ONLY_FIELDS = {"engine", "analyzed_languages", "error_code", "error_message"}
+ANALYSIS_ADMIN_ONLY_FIELDS = {
+    "engine",
+    "analyzed_languages",
+    "error_code",
+    "error_message",
+    "execution_log",
+}
 CATALOG_ITEM_FIELDS = {
     "kisa_code",
     "criterion_id",
@@ -364,14 +368,17 @@ def test_end_to_end_flow_matches_documented_api_contract(client, db_session):
     assert access_response.status_code == 200
     assert set(access_response.json()) == PROJECT_ACCESS_FIELDS
 
-    # -- create an analysis (upload is stubbed per E3, use POST /api/analyses directly) --
+    # -- create an analysis from E3's already registered source --
+    project = db_session.get(Project, project_id)
+    project.source_location = "projects/1/sources/0123456789abcdef0123456789abcdef"
+    project.target_languages = ["JAVA"]
+    db_session.commit()
     analysis_response = client.post(
         "/analyses/",
-        data={"project_id": project_id},
-        files={"file": ("source.zip", b"dummy-source", "application/zip")},
+        json={"project_id": project_id},
         headers=auth_headers(admin_token),
     )
-    assert analysis_response.status_code == 200
+    assert analysis_response.status_code == 201
     analysis_id = analysis_response.json()["id"]
 
     # Populate admin-only fields directly (E4's execution pipeline isn't built
@@ -383,6 +390,7 @@ def test_end_to_end_flow_matches_documented_api_contract(client, db_session):
     analysis.status = "FAILED"
     analysis.error_code = "ENGINE_ERROR"
     analysis.error_message = "semgrep exited with code 1"
+    analysis.execution_log = "engine diagnostic"
     db_session.commit()
 
     finding = Finding(

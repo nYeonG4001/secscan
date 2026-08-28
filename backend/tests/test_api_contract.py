@@ -10,7 +10,13 @@ from app.models.finding import Finding
 from app.models.project import Project, ProjectAccess
 from app.models.user import User
 
-ADMIN_ONLY_ANALYSIS_FIELDS = {"engine", "analyzed_languages", "error_code", "error_message"}
+ADMIN_ONLY_ANALYSIS_FIELDS = {
+    "engine",
+    "analyzed_languages",
+    "error_code",
+    "error_message",
+    "execution_log",
+}
 
 
 @pytest.fixture
@@ -72,6 +78,7 @@ def seeded_analysis(db_session):
         status="FAILED",
         error_code="ENGINE_ERROR",
         error_message="semgrep exited with code 1",
+        execution_log="engine diagnostic",
         summary={"total_findings": 1},
     )
     db_session.add(analysis)
@@ -134,6 +141,7 @@ def test_admin_analysis_list_includes_admin_only_fields(client, db_session, seed
     assert body["engine"] == "semgrep"
     assert body["error_code"] == "ENGINE_ERROR"
     assert body["error_message"] == "semgrep exited with code 1"
+    assert body["execution_log"] == "engine diagnostic"
     assert "source_snapshot_location" not in body
 
 
