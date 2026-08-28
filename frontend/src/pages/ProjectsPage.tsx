@@ -10,6 +10,8 @@ export interface Project {
   id: number;
   name: string;
   description: string | null;
+  source_status?: "NEEDS_UPLOAD" | "REGISTERED";
+  target_languages?: string[] | null;
 }
 
 function errorStatus(error: unknown) {
