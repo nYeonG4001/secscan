@@ -76,11 +76,11 @@ def login(client, email: str) -> str:
         "/auth/login", json={"email": email, "password": "correct-password"}
     )
     assert response.status_code == 200
-    return response.json()["access_token"]
+    return client.cookies.get("secscan_csrf")
 
 
 def auth_headers(token: str) -> dict:
-    return {"Authorization": f"Bearer {token}"}
+    return {"X-CSRF-Token": token}
 
 
 # ---------------------------------------------------------------------------
@@ -215,7 +215,7 @@ def test_login_missing_password_returns_422(client):
     assert response.status_code == 422
 
 
-def test_grant_access_missing_user_id_returns_422(client, db_session):
+def test_grant_access_missing_email_returns_422(client, db_session):
     admin = create_user(db_session, email="admin@secscan.io", role="ADMIN")
     token = login(client, admin.email)
     project = create_project(db_session, name="접근권한 API 필수값 테스트", created_by=admin.id)
@@ -309,7 +309,7 @@ PROJECT_FIELDS = {
     "created_at",
     "updated_at",
 }
-PROJECT_ACCESS_FIELDS = {"id", "project_id", "user_id", "granted_at", "granted_by"}
+PROJECT_ACCESS_FIELDS = {"id", "project_id", "user_id", "user_email", "granted_at", "granted_by"}
 ANALYSIS_USER_FIELDS = {
     "id",
     "project_id",
@@ -358,7 +358,7 @@ def test_end_to_end_flow_matches_documented_api_contract(client, db_session):
     # -- grant the USER access to the project --
     access_response = client.post(
         f"/projects/{project_id}/access",
-        json={"user_id": member.id},
+        json={"email": member.email},
         headers=auth_headers(admin_token),
     )
     assert access_response.status_code == 200

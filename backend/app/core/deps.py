@@ -1,35 +1,72 @@
+import hmac
+
 import jwt
-from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from fastapi import Cookie, Depends, Header, HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.core.database import get_db
 from app.core.security import decode_access_token
 
-bearer_scheme = HTTPBearer()
+INVALID_SESSION_DETAIL = "인증 정보가 유효하지 않습니다."
+PROJECT_NOT_FOUND_DETAIL = "프로젝트를 찾을 수 없습니다."
+
+
+def _unauthorized() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail=INVALID_SESSION_DETAIL,
+    )
 
 
 def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
+    session_token: str | None = Cookie(default=None, alias=settings.SESSION_COOKIE_NAME),
     db: Session = Depends(get_db),
 ):
     from app.models.user import User
 
     try:
-        payload = decode_access_token(credentials.credentials)
-        user_id = int(payload["sub"])
+        if not session_token:
+            raise ValueError
+        payload = decode_access_token(session_token)
+        subject = payload["sub"]
+        if not isinstance(subject, str) or not subject.isdecimal() or int(subject) <= 0:
+            raise ValueError
+        user_id = int(subject)
     except (jwt.PyJWTError, KeyError, ValueError):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="인증 토큰이 유효하지 않습니다.",
-        )
+        raise _unauthorized()
     user = db.get(User, user_id)
     if not user or not user.active:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="인증 토큰이 유효하지 않습니다.",
-        )
+        raise _unauthorized()
     return user
+
+
+def require_csrf(
+    session_token: str | None = Cookie(default=None, alias=settings.SESSION_COOKIE_NAME),
+    csrf_cookie: str | None = Cookie(default=None, alias=settings.CSRF_COOKIE_NAME),
+    csrf_header: str | None = Header(default=None, alias="X-CSRF-Token"),
+) -> None:
+    """Require a header value bound to the authenticated session's CSRF claim."""
+    try:
+        if not session_token:
+            raise ValueError
+        payload = decode_access_token(session_token)
+        csrf_claim = payload["csrf"]
+        if not isinstance(csrf_claim, str):
+            raise ValueError
+    except (jwt.PyJWTError, KeyError, ValueError):
+        raise _unauthorized()
+
+    if not (
+        csrf_cookie
+        and csrf_header
+        and hmac.compare_digest(csrf_header, csrf_cookie)
+        and hmac.compare_digest(csrf_header, csrf_claim)
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="CSRF 토큰이 유효하지 않습니다.",
+        )
 
 
 def require_admin(current_user=Depends(get_current_user)):
@@ -39,3 +76,28 @@ def require_admin(current_user=Depends(get_current_user)):
             detail="관리자 권한이 필요합니다.",
         )
     return current_user
+
+
+def get_project_for_current_user(
+    project_id: int,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    from app.models.project import Project, ProjectAccess
+
+    project = db.get(Project, project_id)
+    if not project:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=PROJECT_NOT_FOUND_DETAIL)
+    if current_user.role == "ADMIN":
+        return project
+    access = (
+        db.query(ProjectAccess)
+        .filter(
+            ProjectAccess.project_id == project.id,
+            ProjectAccess.user_id == current_user.id,
+        )
+        .first()
+    )
+    if not access:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=PROJECT_NOT_FOUND_DETAIL)
+    return project

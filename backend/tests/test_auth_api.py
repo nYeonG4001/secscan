@@ -1,11 +1,17 @@
+from datetime import timedelta
 from unittest.mock import patch
 
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.core.database import SessionLocal, get_db
-from app.core.security import DUMMY_PASSWORD_HASH, hash_password
+from app.core.security import (
+    DUMMY_PASSWORD_HASH,
+    create_access_token,
+    hash_password,
+)
 from app.main import app
 from app.models.user import User
 
@@ -53,7 +59,9 @@ def test_active_account_can_log_in(client, db_session, role):
     response = client.post("/auth/login", json={"email": email, "password": "correct-password"})
 
     assert response.status_code == 200
-    assert response.json()["role"] == role
+    assert response.json() == {"email": email, "role": role}
+    assert client.cookies.get(settings.SESSION_COOKIE_NAME)
+    assert client.cookies.get(settings.CSRF_COOKIE_NAME)
 
 
 def test_login_rejects_invalid_email_format(client):
@@ -97,7 +105,7 @@ def test_unknown_user_and_wrong_password_return_generic_401(client, db_session, 
     assert response.json()["detail"] == "이메일 또는 비밀번호가 올바르지 않습니다."
 
 
-def test_login_response_does_not_expose_password_or_active_policy(client, db_session):
+def test_login_response_does_not_expose_authentication_secrets(client, db_session):
     create_user(db_session, email="user@secscan.io", role="USER")
 
     response = client.post(
@@ -106,7 +114,57 @@ def test_login_response_does_not_expose_password_or_active_policy(client, db_ses
     )
 
     assert response.status_code == 200
-    assert set(response.json()) == {"access_token", "token_type", "role"}
+    assert set(response.json()) == {"email", "role"}
+    assert not {
+        "access_token",
+        "token_type",
+        "password",
+        "password_hash",
+        "active",
+    } & set(response.json())
+
+
+def test_login_sets_httponly_session_cookie_and_readable_csrf_cookie(client, db_session):
+    create_user(db_session, email="user@secscan.io", role="USER")
+
+    response = client.post(
+        "/auth/login",
+        json={"email": "user@secscan.io", "password": "correct-password"},
+    )
+
+    set_cookie_headers = response.headers.get_list("set-cookie")
+    session_cookie = next(
+        header
+        for header in set_cookie_headers
+        if header.startswith(f"{settings.SESSION_COOKIE_NAME}=")
+    )
+    csrf_cookie = next(
+        header
+        for header in set_cookie_headers
+        if header.startswith(f"{settings.CSRF_COOKIE_NAME}=")
+    )
+    assert "HttpOnly" in session_cookie
+    assert "HttpOnly" not in csrf_cookie
+    assert "SameSite=strict" in session_cookie
+    assert "Path=/" in session_cookie
+    assert "Max-Age=86400" in session_cookie
+
+
+def test_session_cookie_secure_setting_changes_by_environment(client, db_session, monkeypatch):
+    create_user(db_session, email="user@secscan.io", role="USER")
+    monkeypatch.setattr(settings, "SESSION_COOKIE_SECURE", False)
+    insecure_response = client.post(
+        "/auth/login",
+        json={"email": "user@secscan.io", "password": "correct-password"},
+    )
+    assert "Secure" not in insecure_response.headers.get_list("set-cookie")[0]
+
+    monkeypatch.setattr(settings, "SESSION_COOKIE_SECURE", True)
+    secure_response = client.post(
+        "/auth/login",
+        json={"email": "user@secscan.io", "password": "correct-password"},
+    )
+    assert "Secure" in secure_response.headers.get_list("set-cookie")[0]
 
 
 def test_missing_user_login_still_runs_password_verification(client, db_session):
@@ -141,16 +199,67 @@ def test_inactive_user_login_still_runs_password_verification(client, db_session
 
 def test_existing_token_is_rejected_after_account_is_deactivated(client, db_session):
     user = create_user(db_session, email="user@secscan.io", role="USER")
-    login_response = client.post(
+    client.post(
         "/auth/login",
         json={"email": "user@secscan.io", "password": "correct-password"},
     )
-    token = login_response.json()["access_token"]
-
     user.active = False
     db_session.commit()
 
-    response = client.get("/projects/", headers={"Authorization": f"Bearer {token}"})
+    response = client.get("/projects/")
 
     assert response.status_code == 401
-    assert response.json()["detail"] == "인증 토큰이 유효하지 않습니다."
+    assert response.json()["detail"] == "인증 정보가 유효하지 않습니다."
+
+
+@pytest.mark.parametrize(
+    "token",
+    [
+        create_access_token({"sub": "not-an-id"}),
+        create_access_token({"sub": "1"}, expires_delta=timedelta(seconds=-1)),
+        "tampered.session.token",
+    ],
+)
+def test_invalid_session_cookie_is_rejected(client, db_session, token):
+    create_user(db_session, email="user@secscan.io", role="USER")
+    client.cookies.set(settings.SESSION_COOKIE_NAME, token)
+
+    response = client.get("/projects/")
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "인증 정보가 유효하지 않습니다."
+
+
+def test_missing_session_cookie_is_rejected(client):
+    response = client.get("/projects/")
+
+    assert response.status_code == 401
+
+
+def test_auth_me_returns_only_email_and_role(client, db_session):
+    create_user(db_session, email="user@secscan.io", role="USER")
+    client.post(
+        "/auth/login",
+        json={"email": "user@secscan.io", "password": "correct-password"},
+    )
+
+    response = client.get("/auth/me")
+
+    assert response.status_code == 200
+    assert response.json() == {"email": "user@secscan.io", "role": "USER"}
+
+
+def test_logout_is_idempotent_and_clears_authentication_cookies(client, db_session):
+    create_user(db_session, email="user@secscan.io", role="USER")
+    client.post(
+        "/auth/login",
+        json={"email": "user@secscan.io", "password": "correct-password"},
+    )
+
+    response = client.post("/auth/logout")
+
+    assert response.status_code == 204
+    cleared_cookie_headers = response.headers.get_list("set-cookie")
+    assert all("Max-Age=0" in header for header in cleared_cookie_headers)
+    assert client.get("/projects/").status_code == 401
+    assert client.post("/auth/logout").status_code == 204

@@ -4,7 +4,12 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.deps import get_current_user, require_admin
+from app.core.deps import (
+    get_current_user,
+    get_project_for_current_user,
+    require_admin,
+    require_csrf,
+)
 from app.models.analysis import Analysis
 from app.schemas.analysis import AnalysisAdminOut, AnalysisUserOut
 
@@ -20,11 +25,11 @@ def _to_analysis_out(analysis: Analysis, current_user) -> Union[AnalysisAdminOut
 
 @router.get("/", response_model=List[Union[AnalysisAdminOut, AnalysisUserOut]])
 def list_analyses(
-    project_id: int,
+    project=Depends(get_project_for_current_user),
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    analyses = db.query(Analysis).filter(Analysis.project_id == project_id).all()
+    analyses = db.query(Analysis).filter(Analysis.project_id == project.id).all()
     return [_to_analysis_out(analysis, current_user) for analysis in analyses]
 
 
@@ -37,6 +42,7 @@ def get_analysis(
     analysis = db.get(Analysis, analysis_id)
     if not analysis:
         raise HTTPException(status_code=404, detail="분석을 찾을 수 없습니다.")
+    get_project_for_current_user(analysis.project_id, db=db, current_user=current_user)
     return _to_analysis_out(analysis, current_user)
 
 
@@ -46,6 +52,7 @@ def create_analysis(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
     current_user=Depends(require_admin),
+    _: None = Depends(require_csrf),
 ):
     # Stub: file saved and Semgrep execution queued in a later sprint
     analysis = Analysis(

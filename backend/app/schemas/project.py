@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, EmailStr, Field
 
 
 class ProjectCreate(BaseModel):
@@ -29,13 +29,14 @@ class ProjectOut(BaseModel):
 
 
 class ProjectAccessCreate(BaseModel):
-    user_id: int
+    email: EmailStr
 
 
 class ProjectAccessOut(BaseModel):
     id: int
     project_id: int
     user_id: int
+    user_email: EmailStr
     granted_at: datetime
     granted_by: int
 

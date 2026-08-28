@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.deps import get_current_user, require_admin
+from app.core.deps import get_current_user, require_admin, require_csrf
 from app.models.kisa_catalog import KisaCatalog
 from app.schemas.catalog import CatalogItemCreate, CatalogItemOut, CatalogItemUpdate
 
@@ -36,6 +36,7 @@ def create_catalog_item(
     body: CatalogItemCreate,
     db: Session = Depends(get_db),
     current_user=Depends(require_admin),
+    _: None = Depends(require_csrf),
 ):
     if db.get(KisaCatalog, body.kisa_code):
         raise HTTPException(status_code=409, detail="이미 등록된 kisa_code입니다.")
@@ -52,6 +53,7 @@ def update_catalog_item(
     body: CatalogItemUpdate,
     db: Session = Depends(get_db),
     current_user=Depends(require_admin),
+    _: None = Depends(require_csrf),
 ):
     item = db.get(KisaCatalog, kisa_code)
     if not item:

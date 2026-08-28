@@ -39,11 +39,11 @@ def login(client, email: str) -> str:
         "/auth/login", json={"email": email, "password": "correct-password"}
     )
     assert response.status_code == 200
-    return response.json()["access_token"]
+    return client.cookies.get("secscan_csrf")
 
 
 def auth_headers(token: str) -> dict:
-    return {"Authorization": f"Bearer {token}"}
+    return {"X-CSRF-Token": token}
 
 
 def test_seed_data_has_exactly_49_items():
