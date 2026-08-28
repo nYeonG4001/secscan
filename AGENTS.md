@@ -15,6 +15,16 @@
 - Do not commit secrets, real credentials, uploaded source code, generated artifacts, or local agent state.
 - Every material bug or environment problem must be recorded with `docs/templates/troubleshooting.md`.
 
+## Agent collaboration efficiency
+
+- User-facing explanations, committed documents, commit messages, PR text, and code comments stay in Korean unless a technical term is clearer in English.
+- Until this rule is revised, Codex-to-Claude and Codex-to-Codex handoff prompts and worker reports use concise English. The managing agent summarizes outcomes for the user in Korean.
+- A handoff references existing documents, ADR numbers, file paths, and test names instead of copying long source text or command output.
+- New agents read `AGENTS.md`, the relevant epic document, and only the additional files needed for their assigned scope. Do not request a full repository reread when a focused handoff is sufficient.
+- Worker reports use three sections only: changed, validated, blocked. Include details only for failures, decisions, or evidence the next agent needs.
+- Use high-reasoning models for requirement interpretation, security decisions, and reviews. Use lower-cost models for focused implementation, mechanical documentation, and isolated verification after the scope is fixed.
+- Use `docs/templates/agent-handoff.md` for reusable multi-agent handoffs.
+
 ## Codex role
 
 Codex is the primary implementation and verification agent.
