@@ -323,6 +323,7 @@ SEC-005
 - `docs/adr/`: 설계 결정 기록
 - `docs/troubleshooting/`: 해결된 문제와 재현 방법 기록
 - `docs/templates/troubleshooting.md`: 트러블슈팅 기록 양식
+- `backend/semgrep-rules/THIRD_PARTY_NOTICES.md`: 고정 Semgrep 규칙 파일의 출처와 라이선스 기록
 
 ## 9. AI 역할 분담
 
@@ -363,6 +364,7 @@ PR 코드 리뷰는 GitHub Actions로 자동 실행되지 않는다. PR을 만�
 
 - `backend/app/core/`, 인증·권한 관련 라우터 코드
 - 파일 업로드/경로 처리 코드 (E3)
+- `backend/semgrep-rules/` 아래의 탐지 규칙 파일
 - Alembic 마이그레이션, 모델 필드 변경
 - API 응답 스키마 변경(`docs/api-contract.md`에 없는 필드 추가·제거 포함)
 - SEC-*, DAR-* 요구사항과 연결된 작업
