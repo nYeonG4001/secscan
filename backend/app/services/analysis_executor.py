@@ -9,6 +9,8 @@ from datetime import datetime, timezone
 from app.core.database import SessionLocal
 from app.core.deps import get_source_workspace
 from app.models.analysis import Analysis
+from app.services.finding_normalizer import persist_normalized_findings
+from app.services.semgrep_parser import parse_semgrep_results
 from app.services.semgrep_runner import SemgrepRunError, SemgrepRunner
 
 logger = logging.getLogger(__name__)
@@ -66,12 +68,29 @@ class AnalysisExecutor:
                 )
                 return
 
-            analysis.status = "COMPLETED"
-            analysis.completed_at = datetime.now(timezone.utc)
-            analysis.summary = {"total_findings": result.result_count}
-            analysis.raw_result = result.metadata
-            analysis.execution_log = result.execution_log
-            db.commit()
+            try:
+                normalized = parse_semgrep_results(result.results, snapshot_root)
+                stored_count = persist_normalized_findings(
+                    db, analysis.id, snapshot_root, normalized
+                )
+                analysis.status = "COMPLETED"
+                analysis.completed_at = datetime.now(timezone.utc)
+                analysis.summary = {"total_findings": stored_count}
+                analysis.raw_result = result.metadata
+                analysis.execution_log = result.execution_log
+                db.commit()
+            except Exception:
+                db.rollback()
+                logger.exception("Finding normalization failed for analysis %d", analysis_id)
+                analysis = db.get(Analysis, analysis_id)
+                if analysis:
+                    self._fail(
+                        db,
+                        analysis,
+                        "ENGINE_OUTPUT_INVALID",
+                        "분석 엔진 출력 형식이 올바르지 않습니다.",
+                        result.execution_log,
+                    )
         finally:
             db.close()
 

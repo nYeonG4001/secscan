@@ -137,6 +137,12 @@ def test_finding_snapshot_is_independent_of_catalog_changes(db_session):
 
 
 def test_finding_out_schemas_include_new_snapshot_fields():
-    assert {"criterion_id", "evidence", "recommendation"} <= set(FindingUserOut.model_fields)
+    assert {
+        "criterion_id",
+        "engine_rule_id",
+        "end_line",
+        "evidence",
+        "recommendation",
+    } <= set(FindingUserOut.model_fields)
     assert "raw_result" not in FindingUserOut.model_fields
     assert "raw_result" in FindingAdminOut.model_fields

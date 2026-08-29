@@ -61,6 +61,13 @@ def _kisa_catalog_columns() -> set:
     return {column["name"] for column in inspector.get_columns("kisa_catalog")}
 
 
+def _kisa_rule_mapping_columns() -> set:
+    inspector = inspect(engine)
+    if "kisa_rule_mapping" not in inspector.get_table_names():
+        return set()
+    return {column["name"] for column in inspector.get_columns("kisa_rule_mapping")}
+
+
 def _project_access_columns() -> set:
     inspector = inspect(engine)
     if "project_accesses" not in inspector.get_table_names():
@@ -313,8 +320,8 @@ def test_downgrade_to_0005_removes_kisa_catalog_full_fields(alembic_config):
         "description",
         "default_severity",
         "implementation_status",
-        "semgrep_rule_id",
         "recommendation",
+        "semgrep_rule_id",
     }
 
 
@@ -374,17 +381,20 @@ ERD_COLUMNS = {
         "analysis_id",
         "kisa_code",
         "criterion_id",
+        "engine_rule_id",
         "rule_name",
         "severity",
         "confidence",
         "language",
         "file_path",
         "line",
+        "end_line",
         "message",
         "evidence",
         "recommendation",
         "raw_result",
         "code_snippet",
+        "finding_fingerprint",
     },
     "kisa_catalog": {
         "kisa_code",
@@ -397,9 +407,9 @@ ERD_COLUMNS = {
         "default_severity",
         "active",
         "implementation_status",
-        "semgrep_rule_id",
         "recommendation",
     },
+    "kisa_rule_mapping": {"id", "engine", "engine_rule_id", "kisa_code"},
 }
 
 
@@ -415,6 +425,7 @@ def test_e1_08_audit_head_schema_matches_erd_exactly(alembic_config):
         "analyses": _analysis_columns(),
         "findings": _finding_columns(),
         "kisa_catalog": _kisa_catalog_columns(),
+        "kisa_rule_mapping": _kisa_rule_mapping_columns(),
     }
 
     for table, expected_columns in ERD_COLUMNS.items():
@@ -451,6 +462,10 @@ def test_e1_08_audit_all_foreign_keys_exist(alembic_config):
     assert (("analysis_id",), "analyses", ("id",)) in finding_fks
     assert (("kisa_code",), "kisa_catalog", ("kisa_code",)) in finding_fks
 
+    assert (("kisa_code",), "kisa_catalog", ("kisa_code",)) in _fk_pairs(
+        "kisa_rule_mapping"
+    )
+
 
 def test_e1_08_audit_all_uniqueness_and_check_constraints_exist(alembic_config):
     """E1-08 완료조건 3: 중복 방지·체크 제약이 head 스키마에 전부 존재한다."""
@@ -479,3 +494,21 @@ def test_e1_08_audit_all_uniqueness_and_check_constraints_exist(alembic_config):
 
     catalog_checks = {c["name"] for c in inspector.get_check_constraints("kisa_catalog")}
     assert "ck_kisa_catalog_implementation_status" in catalog_checks
+    assert "ck_kisa_catalog_default_severity" in catalog_checks
+
+    finding_checks = {c["name"] for c in inspector.get_check_constraints("findings")}
+    assert {
+        "ck_findings_end_line_gte_line",
+        "ck_findings_severity",
+        "ck_findings_confidence",
+    } <= finding_checks
+
+    finding_constraints = {
+        c["name"] for c in inspector.get_unique_constraints("findings")
+    }
+    assert "uq_findings_analysis_fingerprint" in finding_constraints
+
+    mapping_constraints = {
+        c["name"] for c in inspector.get_unique_constraints("kisa_rule_mapping")
+    }
+    assert "uq_kisa_rule_mapping_engine_rule" in mapping_constraints

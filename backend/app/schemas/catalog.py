@@ -14,7 +14,6 @@ class CatalogItemOut(BaseModel):
     default_severity: str
     active: bool
     implementation_status: str
-    semgrep_rule_id: Optional[str] = None
     recommendation: Optional[str] = None
 
     model_config = {"from_attributes": True}
@@ -32,6 +31,8 @@ class CatalogItemCreate(BaseModel):
     default_severity: str
     implementation_status: str = "미지원"
 
+    model_config = {"extra": "forbid"}
+
 
 class CatalogItemUpdate(BaseModel):
     description: Optional[str] = None
@@ -40,3 +41,5 @@ class CatalogItemUpdate(BaseModel):
     default_severity: Optional[str] = None
     implementation_status: Optional[str] = None
     recommendation: Optional[str] = None
+
+    model_config = {"extra": "forbid"}

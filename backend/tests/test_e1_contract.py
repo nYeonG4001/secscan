@@ -336,7 +336,6 @@ CATALOG_ITEM_FIELDS = {
     "default_severity",
     "active",
     "implementation_status",
-    "semgrep_rule_id",
     "recommendation",
 }
 

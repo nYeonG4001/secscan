@@ -41,8 +41,8 @@ def test_execution_log_scrubs_paths_environment_and_archive_name(monkeypatch, tm
 
 def test_runner_uses_wrapper_argument_array_and_safe_process_options(monkeypatch, tmp_path):
     (tmp_path / "main.py").write_text("print('safe')")
-    rules = tmp_path / "rules"
-    rules.mkdir()
+    rules = tmp_path / "rules.yml"
+    rules.write_text("rules: []")
     captured: dict[str, object] = {}
 
     class Process:
@@ -69,6 +69,7 @@ def test_runner_uses_wrapper_argument_array_and_safe_process_options(monkeypatch
     assert "--json" in command
     assert "--quiet" in command
     assert "--config" in command
+    assert "--no-rewrite-rule-ids" in command
     assert command[-1] == "main.py"
     kwargs = captured["kwargs"]
     assert kwargs["start_new_session"] is True
@@ -79,8 +80,8 @@ def test_runner_uses_wrapper_argument_array_and_safe_process_options(monkeypatch
 
 def test_runner_timeout_terminates_the_process_group(monkeypatch, tmp_path):
     (tmp_path / "main.py").write_text("print('safe')")
-    rules = tmp_path / "rules"
-    rules.mkdir()
+    rules = tmp_path / "rules.yml"
+    rules.write_text("rules: []")
     killed: list[tuple[int, int]] = []
 
     class Process:
