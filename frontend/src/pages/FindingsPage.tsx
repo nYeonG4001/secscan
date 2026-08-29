@@ -28,7 +28,26 @@ export default function FindingsPage({ analysisId }: { analysisId: string }) {
     finally { setLoading(false); }
   }, [analysisId, clearUser, filters, navigate]);
   useEffect(() => { void load(); }, [load]);
-  async function select(item: FindingListItem) { try { setSelected(await getFinding(item.id)); } catch { setError("결과 상세를 불러오지 못했습니다. 다시 시도해 주세요."); } }
+  async function select(item: FindingListItem) {
+    try {
+      setSelected(await getFinding(item.id));
+    } catch (requestError) {
+      const status = (requestError as AxiosError).response?.status;
+      if (status === 401) {
+        clearUser();
+        navigate("/login", {
+          replace: true,
+          state: { message: SESSION_EXPIRED_MESSAGE },
+        });
+      } else if (status === 403) {
+        setError("이 기능은 관리자만 사용할 수 있습니다.");
+      } else if (status === 404) {
+        setError("요청한 정보를 찾을 수 없습니다.");
+      } else {
+        setError("결과 상세를 불러오지 못했습니다. 다시 시도해 주세요.");
+      }
+    }
+  }
   function changeFilter(name: "severity" | "mapping_status" | "language", value: string) { setSelected(null); setFilters((current) => ({ ...current, [name]: value || undefined, offset: 0 })); }
   function resetFilters() { setSelected(null); setFilters({ limit: LIMIT, offset: 0 }); }
   const hasFilters = Boolean(filters.severity || filters.mapping_status || filters.language);
