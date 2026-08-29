@@ -9,7 +9,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 from app.core.database import SessionLocal
 from app.core.security import hash_password
 from app.models.user import User
-from app.services.kisa_catalog_seed import seed_kisa_catalog
+from app.services.kisa_catalog_seed import seed_kisa_catalog, seed_kisa_rule_mappings
 
 
 def seed():
@@ -55,6 +55,8 @@ def seed():
 
         inserted = seed_kisa_catalog(db)
         print(f"  KISA 카탈로그: {inserted}개 신규 등록 (총 49개 기준)")
+        mappings = seed_kisa_rule_mappings(db)
+        print(f"  KISA 규칙 매핑: {mappings}개 신규 등록")
 
         print("Seed 완료")
     finally:

@@ -86,7 +86,18 @@
 | QLT-002 | 진단 항목 독립성 | E1-06, E5-03, E7-06 | 진단 항목별 독립 추가와 테스트 | 항목별 테스트 | E1-06 완료(2026-08-27): `POST /api/catalog`가 항목 하나를 다른 49개 시드 항목과 독립적으로 등록·검증(중복 `kisa_code`만 거부)함을 `test_admin_can_register_new_catalog_item`으로 확인. E5 설계 완료(2026-08-28): `KISA_RULE_MAPPING`이 `UNIQUE(engine, engine_rule_id)`로 규칙 하나가 여러 KISA 항목에 중복 연결되지 않도록 보장하면서도 여러 규칙 → 한 KISA 항목 연결은 허용(ADR-030). 탐지 규칙 단위 독립성 구현은 E5-03/E7-06 잔여 | 진행 |
 | QLT-003 | 확장성 | E4-02, E5-02 | 추가 언어와 기준 확장 구조 | `backend/tests/test_semgrep_runner.py` | E4-02 완료(2026-08-28): 언어별 분석 설정(Java/JS/Python 파일 필터)과 자체 규칙 확장 구조(`backend/semgrep-rules/`, 여러 `--config` 파일 지정으로 규칙 추가 가능, 별도 PR·라이선스 검토로 관리)를 실제로 구현. 새 엔진 추가를 위한 파서 확장(E5-02 `NormalizedFinding`)은 설계만 확정 | 진행 |
 | QLT-004 | 결과 일관성 | E1-05, E5-02, E5-07 | 공통 위치, 심각도, 신뢰도, 근거 표현 | 결과 일관성 테스트 | E1-05 진행(2026-08-27): Finding에 언어·소스 무관 공통 필드(위치, 심각도, 신뢰도, `evidence`)가 모델 레벨로 확정됨. 언어별 실제 결과 비교는 E5-02/E5-07 잔여 | 진행 |
-| QLT-005 | 데이터 정합성 | E1-08, E1-09, E5-06 | 프로젝트, 분석, 결과, 기준 관계와 언어 일관성 | 정합성 테스트 | E1-09 완료(2026-08-27): `test_e1_contract.py` 엔드투엔드 테스트로 저장(모델 생성)과 조회(API 응답)의 필드가 일치함을 프로젝트·접근권한·분석·카탈로그 전체 흐름에서 확인. 분석 시점 언어 일관성(`analyzed_languages`)은 E1-04에서 이미 스냅샷으로 확정. Finding 쪽 언어 일관성 정합성은 E5-06 잔여 | 진행 |
+| QLT-005 | 데이터 정합성 | E1-08, E1-09, E5-06 | 프로젝트, 분석, 결과, 기준 관계와 언어 일관성 | 정합성 테스트 | E1-09 완료(2026-08-27): `test_e1_contract.py` 엔드투엔드 테스트로 저장(모델 생성)과 조회(API 응답)의 필드가 일치함을 프로젝트·접근권한·분석·카탈로그 전체 흐름에서 확인. 분석 시점 언어 일관성(`analyzed_languages`)은 E1-04에서 이미 스냅샷으로 확정. Finding 쪽 언어 일관성 정합성은 E5-06에서 구현·검증됐으며, 2026-08-29 E5 마감 증거를 따른다. | 완료 |
+
+## E5 구현 마감 증거 (2026-08-29)
+
+E5의 백엔드 결과 정규화·KISA 매핑·저장 범위는 완료했다. 아래 요구사항 행은 E6 화면과 E7 통합 검증이 남아 있으면 상태를 `진행`으로 유지하되, E5에 배정된 구현·테스트 근거는 다음과 같다.
+
+| 관련 요구사항 | E5 완료 근거 | 검증 |
+|---|---|---|
+| SFR-009, SFR-010, SFR-011, SFR-014 | Semgrep JSON을 `NormalizedFinding`으로 파싱하고 KISA 매핑·미매핑 보존·심각도/신뢰도 정규화·코드 조각·안전한 원본 결과를 Finding으로 저장했다. Java, JavaScript, Python 자체 taint 규칙의 고정 `check_id`와 초기 KISA-005/002/043 매핑을 확인했다. | `backend/tests/test_e5_result_normalization.py`, `backend/tests/test_semgrep_runner.py`, `backend/tests/test_analysis_execution.py` 집중 20개 통과 |
+| DAR-006, DAR-008, DAR-009 | `engine_rule_id`, `end_line`, 지문, KISA 매핑 테이블과 스냅샷 필드를 Alembic 0008~0011로 적용했다. 결과 정규화·저장은 하나의 트랜잭션으로 처리하고, 잘못된 엔진 출력은 `ENGINE_OUTPUT_INVALID`로 전체 롤백한다. | 전용 PostgreSQL에서 `upgrade head → downgrade 0007 → upgrade head` 통과, `backend/tests/test_migrations.py` 23개 통과 |
+| TST-004, TST-005 | 언어별 취약 fixture는 매핑된 HIGH/UNKNOWN Finding 1건을 만들고, 같은 sink를 고정값으로 호출하는 정상 fixture는 해당 규칙이 탐지되지 않음을 확인했다. 합성 JSON fixture로 미매핑 보존과 지문 중복 제거도 확인했다. | E5 집중 20개 통과, 전체 backend pytest 208개 통과 |
+| QLT-001, QLT-002, QLT-003, QLT-004, QLT-005 | Semgrep 전용 파서와 엔진 중립 정규화·저장 서비스를 분리하고, `KISA_RULE_MAPPING(engine, engine_rule_id)` UNIQUE와 Finding 지문 UNIQUE로 확장·정합성 경계를 강제했다. | `ruff check app tests`, `git diff --check` 통과 |
 
 ## 등록 규칙
 

@@ -23,13 +23,14 @@ AGENTS.md "해석이 애매하면 가정을 기록"):
   code-quality issues -> LOW). The guide itself does not assign a
   severity level; actual detection priority remains ADR-011's decision
   for E4/E5, this is unrelated to that.
-- ``semgrep_rule_id`` is NULL and ``implementation_status`` is
-  "미지원" for all 49 items at seed time, per this task's explicit scope.
+- ``implementation_status`` is "미지원" for all 49 items at seed time,
+  per this task's explicit scope.
 """
 
 from sqlalchemy.orm import Session
 
 from app.models.kisa_catalog import KisaCatalog
+from app.models.kisa_rule_mapping import KisaRuleMapping
 
 _GUIDE_REFERENCE = "소프트웨어 개발보안 가이드(행정안전부·KISA, 2021.12.29) 제4장"
 
@@ -147,7 +148,6 @@ def build_kisa_catalog_seed_rows() -> list[dict]:
                     "default_severity": severity,
                     "active": True,
                     "implementation_status": "미지원",
-                    "semgrep_rule_id": None,
                 }
             )
     return rows
@@ -166,5 +166,54 @@ def seed_kisa_catalog(db: Session) -> int:
         db.add(KisaCatalog(**row))
         inserted += 1
     if inserted:
+        db.commit()
+    return inserted
+
+
+KISA_RULE_MAPPING_SEED = [
+    {
+        "engine": "semgrep",
+        "engine_rule_id": "secscan.java.runtime-exec",
+        "kisa_code": "KISA-005",
+    },
+    {
+        "engine": "semgrep",
+        "engine_rule_id": "secscan.javascript.eval",
+        "kisa_code": "KISA-002",
+    },
+    {
+        "engine": "semgrep",
+        "engine_rule_id": "secscan.python.pickle-loads",
+        "kisa_code": "KISA-043",
+    },
+]
+
+KISA_RULE_MAPPING_IMPLEMENTATION_STATUS_UPDATES = {
+    "KISA-005": "부분 지원",
+    "KISA-002": "부분 지원",
+    "KISA-043": "부분 지원",
+}
+
+
+def seed_kisa_rule_mappings(db: Session) -> int:
+    """Insert initial engine rule -> KISA mappings and update implementation status."""
+    existing = {
+        (row.engine, row.engine_rule_id)
+        for row in db.query(KisaRuleMapping.engine, KisaRuleMapping.engine_rule_id).all()
+    }
+    inserted = 0
+    for row in KISA_RULE_MAPPING_SEED:
+        key = (row["engine"], row["engine_rule_id"])
+        if key in existing:
+            continue
+        db.add(KisaRuleMapping(**row))
+        inserted += 1
+
+    for kisa_code, status in KISA_RULE_MAPPING_IMPLEMENTATION_STATUS_UPDATES.items():
+        item = db.get(KisaCatalog, kisa_code)
+        if item and item.implementation_status != status:
+            item.implementation_status = status
+
+    if inserted or db.dirty:
         db.commit()
     return inserted

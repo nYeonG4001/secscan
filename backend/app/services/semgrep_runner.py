@@ -35,6 +35,7 @@ TERMINATION_GRACE_SECONDS = 3
 @dataclass(frozen=True)
 class SemgrepRunResult:
     result_count: int
+    results: list[dict]
     metadata: dict[str, object]
     execution_log: str | None
 
@@ -47,8 +48,8 @@ class SemgrepRunError(Exception):
         self.execution_log = execution_log
 
 
-def rule_directory() -> Path:
-    return Path(__file__).resolve().parents[2] / "semgrep-rules"
+def rule_file() -> Path:
+    return Path(__file__).resolve().parents[2] / "semgrep-rules" / "secscan-security.yml"
 
 
 def collect_analysis_targets(snapshot_root: Path) -> list[str]:
@@ -82,7 +83,7 @@ class SemgrepRunner:
     ) -> None:
         self.executable = executable or settings.SEMGREP_CLI_PATH
         self.cli_version = cli_version or settings.SEMGREP_CLI_VERSION
-        self.rules_path = rules_path or rule_directory()
+        self.rules_path = rules_path or rule_file()
         self.timeout_seconds = timeout_seconds or settings.SEMGREP_TIMEOUT_SECONDS
         self.cpu_limit_seconds = cpu_limit_seconds or settings.SEMGREP_CPU_LIMIT_SECONDS
         self.address_space_limit_bytes = (
@@ -93,7 +94,7 @@ class SemgrepRunner:
         targets = collect_analysis_targets(snapshot_root)
         if not targets:
             raise SemgrepRunError("ENGINE_EXECUTION_FAILED", "분석할 지원 소스 파일이 없습니다.")
-        if not self.rules_path.is_dir():
+        if not self.rules_path.is_file():
             raise SemgrepRunError("ENGINE_EXECUTION_FAILED", "분석 규칙을 사용할 수 없습니다.")
 
         command = [
@@ -108,15 +109,22 @@ class SemgrepRunner:
             self.executable,
             "--config",
             str(self.rules_path),
+            "--no-rewrite-rule-ids",
             "--json",
             "--quiet",
             "--oss-only",
             "--metrics=off",
             *targets,
         ]
+        environment = os.environ.copy()
+        backend_root = str(Path(__file__).resolve().parents[2])
+        environment["PYTHONPATH"] = os.pathsep.join(
+            value for value in (backend_root, environment.get("PYTHONPATH")) if value
+        )
         process = subprocess.Popen(
             command,
             cwd=snapshot_root,
+            env=environment,
             stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -162,7 +170,7 @@ class SemgrepRunner:
             "exit_code": process.returncode,
             "result_count": len(results),
         }
-        return SemgrepRunResult(len(results), metadata, log)
+        return SemgrepRunResult(len(results), results, metadata, log)
 
     def _terminate_process_group(self, process: subprocess.Popen[str]) -> tuple[str, str]:
         try:

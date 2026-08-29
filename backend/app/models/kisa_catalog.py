@@ -13,11 +13,13 @@ class KisaCatalog(Base):
             "implementation_status IN ('지원', '부분 지원', '미지원')",
             name="ck_kisa_catalog_implementation_status",
         ),
+        CheckConstraint(
+            "default_severity IN ('CRITICAL', 'HIGH', 'MEDIUM', 'LOW')",
+            name="ck_kisa_catalog_default_severity",
+        ),
     )
 
     kisa_code: Mapped[str] = mapped_column(String, primary_key=True)
-    # E1-05 added criterion_id/recommendation early only because Finding
-    # (ADR-005/ADR-007) needed a source to snapshot from.
     criterion_id: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     item_number: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     category: Mapped[str] = mapped_column(String, nullable=False)
@@ -28,11 +30,9 @@ class KisaCatalog(Base):
     active: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=True, server_default=true()
     )
-    # ADR-011: 지원/부분 지원/미지원. Actual detection priority per item is E4/E5's job.
     implementation_status: Mapped[str] = mapped_column(
         String, nullable=False, default="미지원"
     )
-    semgrep_rule_id: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     recommendation: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     findings = relationship("Finding", back_populates="kisa_item")
