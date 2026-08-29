@@ -223,6 +223,8 @@ E1 작업 상세는 `docs/epic/e1-data-model.md`, E2 작업 상세는 `docs/epic
 
 ### E6. 결과·카탈로그 화면 구현
 
+상세 결정과 작업 기준은 `docs/epic/e6-results-catalog-ui.md`를 따른다.
+
 작업 번호:
 
 1. E6-01 프로젝트별 분석 이력 화면 구현
