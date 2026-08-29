@@ -180,7 +180,9 @@ def test_admin_analysis_detail_includes_admin_only_fields(client, db_session, se
     assert "source_snapshot_location" not in body
 
 
-def test_finding_list_uses_lightweight_paginated_response_for_all_roles(client, db_session, seeded_analysis):
+def test_finding_list_uses_lightweight_paginated_response_for_all_roles(
+    client, db_session, seeded_analysis
+):
     user = create_user(db_session, email="user@secscan.io", role="USER")
     grant_project_access(
         db_session,

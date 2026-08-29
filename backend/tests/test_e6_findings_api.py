@@ -29,7 +29,11 @@ def client(db_session: Session):
 
 @pytest.fixture
 def analysis(db_session: Session):
-    user = User(email="e6-admin@example.com", password_hash=hash_password("password"), role="ADMIN")
+    user = User(
+        email="e6-admin@example.com",
+        password_hash=hash_password("password"),
+        role="ADMIN",
+    )
     db_session.add(user)
     db_session.commit()
     project = Project(name="E6 결과", created_by=user.id)
@@ -39,16 +43,40 @@ def analysis(db_session: Session):
     db_session.add(analysis)
     db_session.add_all(
         [
-            KisaCatalog(kisa_code="KISA-001", category="테스트", name="테스트 1", default_severity="HIGH", implementation_status="지원"),
-            KisaCatalog(kisa_code="KISA-002", category="테스트", name="테스트 2", default_severity="HIGH", implementation_status="지원"),
+            KisaCatalog(
+                kisa_code="KISA-001",
+                category="테스트",
+                name="테스트 1",
+                default_severity="HIGH",
+                implementation_status="지원",
+            ),
+            KisaCatalog(
+                kisa_code="KISA-002",
+                category="테스트",
+                name="테스트 2",
+                default_severity="HIGH",
+                implementation_status="지원",
+            ),
         ]
     )
     db_session.commit()
     for values in [
         {"severity": "LOW", "file_path": "b.py", "line": None, "language": "PYTHON"},
-        {"severity": "HIGH", "file_path": "b.py", "line": 5, "language": "PYTHON", "kisa_code": "KISA-001"},
+        {
+            "severity": "HIGH",
+            "file_path": "b.py",
+            "line": 5,
+            "language": "PYTHON",
+            "kisa_code": "KISA-001",
+        },
         {"severity": "HIGH", "file_path": "a.py", "line": 2, "language": "JAVA"},
-        {"severity": "CRITICAL", "file_path": "z.py", "line": 1, "language": "JAVASCRIPT", "kisa_code": "KISA-002"},
+        {
+            "severity": "CRITICAL",
+            "file_path": "z.py",
+            "line": 1,
+            "language": "JAVASCRIPT",
+            "kisa_code": "KISA-002",
+        },
     ]:
         db_session.add(Finding(analysis_id=analysis.id, engine_rule_id="e6.rule", **values))
     db_session.commit()
@@ -56,7 +84,10 @@ def analysis(db_session: Session):
 
 
 def auth_headers(client: TestClient) -> dict[str, str]:
-    response = client.post("/auth/login", json={"email": "e6-admin@example.com", "password": "password"})
+    response = client.post(
+        "/auth/login",
+        json={"email": "e6-admin@example.com", "password": "password"},
+    )
     assert response.status_code == 200
     return {"X-CSRF-Token": client.cookies.get("secscan_csrf")}
 
@@ -64,7 +95,12 @@ def auth_headers(client: TestClient) -> dict[str, str]:
 def test_list_filters_orders_and_omits_detail_fields(client: TestClient, analysis: Analysis):
     response = client.get(
         "/findings/",
-        params={"analysis_id": analysis.id, "mapping_status": "KISA_MAPPED", "language": "JAVASCRIPT", "limit": 1},
+        params={
+            "analysis_id": analysis.id,
+            "mapping_status": "KISA_MAPPED",
+            "language": "JAVASCRIPT",
+            "limit": 1,
+        },
         headers=auth_headers(client),
     )
     assert response.status_code == 200
@@ -72,14 +108,36 @@ def test_list_filters_orders_and_omits_detail_fields(client: TestClient, analysi
     assert body["total"] == 1
     assert body["limit"] == 1
     assert body["items"][0]["mapping_status"] == "KISA_MAPPED"
-    assert {"message", "evidence", "code_snippet", "recommendation", "raw_result", "engine_rule_id", "criterion_id"}.isdisjoint(body["items"][0])
+    detail_fields = {
+        "message",
+        "evidence",
+        "code_snippet",
+        "recommendation",
+        "raw_result",
+        "engine_rule_id",
+        "criterion_id",
+    }
+    assert detail_fields.isdisjoint(body["items"][0])
 
-    ordered = client.get("/findings/", params={"analysis_id": analysis.id}, headers=auth_headers(client)).json()
+    ordered = client.get(
+        "/findings/",
+        params={"analysis_id": analysis.id},
+        headers=auth_headers(client),
+    ).json()
     assert [item["severity"] for item in ordered["items"]] == ["CRITICAL", "HIGH", "HIGH", "LOW"]
     assert [item["file_path"] for item in ordered["items"]][1:3] == ["a.py", "b.py"]
 
 
-@pytest.mark.parametrize("params", [{"limit": 0}, {"limit": 101}, {"offset": -1}, {"language": "GO"}])
-def test_list_rejects_invalid_pagination_and_language(client: TestClient, analysis: Analysis, params):
-    response = client.get("/findings/", params={"analysis_id": analysis.id, **params}, headers=auth_headers(client))
+@pytest.mark.parametrize(
+    "params",
+    [{"limit": 0}, {"limit": 101}, {"offset": -1}, {"language": "GO"}],
+)
+def test_list_rejects_invalid_pagination_and_language(
+    client: TestClient, analysis: Analysis, params
+):
+    response = client.get(
+        "/findings/",
+        params={"analysis_id": analysis.id, **params},
+        headers=auth_headers(client),
+    )
     assert response.status_code == 422
