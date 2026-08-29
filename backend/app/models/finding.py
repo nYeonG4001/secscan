@@ -54,3 +54,7 @@ class Finding(Base):
 
     analysis = relationship("Analysis", back_populates="findings")
     kisa_item = relationship("KisaCatalog", back_populates="findings")
+
+    @property
+    def mapping_status(self) -> str:
+        return "KISA_MAPPED" if self.kisa_code else "UNMAPPED"

@@ -1,10 +1,12 @@
 import { AxiosError } from "axios";
-import { useEffect, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { api } from "../api/auth";
 import { useAuth } from "../auth/useAuth";
 import { SESSION_EXPIRED_MESSAGE } from "../auth/RouteGuards";
+import { ActionDrawer } from "../components/ActionDrawer";
+import { createProject } from "../api/projects";
 
 export interface Project {
   id: number;
@@ -19,11 +21,27 @@ function errorStatus(error: unknown) {
 }
 
 export default function ProjectsPage() {
-  const { clearUser } = useAuth();
+  const { clearUser, user } = useAuth();
   const navigate = useNavigate();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showCreate, setShowCreate] = useState(false);
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+
+  async function submitCreate(event: FormEvent) {
+    event.preventDefault();
+    try {
+      const created = await createProject({ name, description: description || null });
+      setShowCreate(false);
+      navigate(`/projects/${created.id}`);
+    } catch (requestError) {
+      if (errorStatus(requestError) === 401) { clearUser(); navigate("/login", { replace: true, state: { message: SESSION_EXPIRED_MESSAGE } }); }
+      else if (errorStatus(requestError) === 403) setError("이 기능은 관리자만 사용할 수 있습니다.");
+      else setError("프로젝트를 등록하지 못했습니다. 다시 시도해 주세요.");
+    }
+  }
 
   useEffect(() => {
     let active = true;
@@ -60,6 +78,7 @@ export default function ProjectsPage() {
           <h1 className="text-2xl font-bold">프로젝트</h1>
           <p className="mt-1 text-sm text-gray-500">접근 권한이 있는 프로젝트를 확인합니다.</p>
         </div>
+        {user?.role === "ADMIN" && <button type="button" onClick={() => setShowCreate(true)}>새 프로젝트</button>}
       </div>
       {projects.length === 0 ? (
         <p className="text-sm text-gray-500">표시할 프로젝트가 없습니다.</p>
@@ -73,6 +92,7 @@ export default function ProjectsPage() {
           ))}
         </ul>
       )}
+      {showCreate && user?.role === "ADMIN" && <ActionDrawer title="새 프로젝트" onClose={() => setShowCreate(false)} footer={<button type="submit" form="create-project" className="w-full">등록</button>}><form id="create-project" onSubmit={submitCreate} className="space-y-3"><label className="block">프로젝트 이름<input required value={name} onChange={(event) => setName(event.target.value)} /></label><label className="block">설명<textarea value={description} onChange={(event) => setDescription(event.target.value)} /></label></form></ActionDrawer>}
     </section>
   );
 }
