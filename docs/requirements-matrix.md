@@ -99,6 +99,13 @@ E5의 백엔드 결과 정규화·KISA 매핑·저장 범위는 완료했다. �
 | TST-004, TST-005 | 언어별 취약 fixture는 매핑된 HIGH/UNKNOWN Finding 1건을 만들고, 같은 sink를 고정값으로 호출하는 정상 fixture는 해당 규칙이 탐지되지 않음을 확인했다. 합성 JSON fixture로 미매핑 보존과 지문 중복 제거도 확인했다. | E5 집중 20개 통과, 전체 backend pytest 208개 통과 |
 | QLT-001, QLT-002, QLT-003, QLT-004, QLT-005 | Semgrep 전용 파서와 엔진 중립 정규화·저장 서비스를 분리하고, `KISA_RULE_MAPPING(engine, engine_rule_id)` UNIQUE와 Finding 지문 UNIQUE로 확장·정합성 경계를 강제했다. | `ruff check app tests`, `git diff --check` 통과 |
 
+## E6 구현 증거 (2026-08-29)
+
+| 관련 요구사항 | E6 구현 근거 | 검증 |
+|---|---|---|
+| SFR-015, SFR-016, SFR-017, DAR-006, SEC-003 | `backend/app/routers/findings.py`가 경량 목록 envelope, 심각도·매핑 상태·언어 필터, 50/100 페이지 경계와 안정 정렬을 제공한다. `AnalysisStatusPage.tsx`는 실제 `project_id`로 경로를 정규화하고 완료 결과를 같은 경로에 표시하며, `FindingsPage.tsx`는 독립 스크롤 분할 상세와 역할별 원본 결과 표시를 제공한다. | `backend/tests/test_e6_findings_api.py`, `backend/tests/test_api_contract.py`, `backend/tests/test_project_resource_access.py` |
+| SFR-012, SFR-013, SFR-004, DAR-007 | `CatalogPage.tsx`는 클라이언트 검색·구현 상태 필터, 읽기 전용/ADMIN 수정 경계와 등록 Drawer를 제공한다. `ProjectsPage.tsx`, `ProjectDetailPage.tsx`는 ADMIN 전용 생성·수정 Drawer와 분석 이력을 제공한다. | `frontend/src/App.test.tsx`, `frontend/src/pages/SourceUploadDrawer.test.tsx`, `npm run typecheck`, `npm run lint`, `npm test`, `npm run build` |
+
 ## 등록 규칙
 
 - 새 구현을 시작할 때 관련 요구사항 행과 세부 작업의 상태를 함께 갱신한다.

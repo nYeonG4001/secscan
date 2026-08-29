@@ -180,7 +180,9 @@ def test_admin_analysis_detail_includes_admin_only_fields(client, db_session, se
     assert "source_snapshot_location" not in body
 
 
-def test_user_finding_list_excludes_raw_result(client, db_session, seeded_analysis):
+def test_finding_list_uses_lightweight_paginated_response_for_all_roles(
+    client, db_session, seeded_analysis
+):
     user = create_user(db_session, email="user@secscan.io", role="USER")
     grant_project_access(
         db_session,
@@ -198,22 +200,14 @@ def test_user_finding_list_excludes_raw_result(client, db_session, seeded_analys
 
     assert response.status_code == 200
     body = response.json()
-    assert len(body) == 1
-    assert "raw_result" not in body[0]
-
-
-def test_admin_finding_list_includes_raw_result(client, db_session, seeded_analysis):
-    token = login(client, seeded_analysis["admin"].email)
-
-    response = client.get(
-        "/findings/",
-        params={"analysis_id": seeded_analysis["analysis"].id},
-        headers=auth_headers(token),
-    )
-
-    assert response.status_code == 200
-    body = response.json()[0]
-    assert body["raw_result"] == {"tool": "semgrep", "check_id": "java.sql-injection"}
+    assert set(body) == {"items", "total", "limit", "offset"}
+    assert body["total"] == 1
+    item = body["items"][0]
+    assert set(item) == {
+        "id", "severity", "rule_name", "kisa_code", "file_path", "line", "end_line",
+        "language", "confidence", "mapping_status",
+    }
+    assert "raw_result" not in item
 
 
 def test_user_finding_detail_excludes_raw_result(client, db_session, seeded_analysis):

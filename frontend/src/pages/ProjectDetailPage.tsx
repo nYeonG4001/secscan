@@ -9,6 +9,7 @@ import { ActionDrawer } from "../components/ActionDrawer";
 import { FORBIDDEN_MESSAGE, SESSION_EXPIRED_MESSAGE } from "../auth/RouteGuards";
 import { Project } from "./ProjectsPage";
 import { SourceUploadDrawer } from "./SourceUploadDrawer";
+import { updateProject } from "../api/projects";
 
 interface ProjectAccess {
   id: number;
@@ -41,11 +42,15 @@ export default function ProjectDetailPage() {
   const [showAccessPanel, setShowAccessPanel] = useState(false);
   const [showSourceUploadPanel, setShowSourceUploadPanel] = useState(false);
   const [hasActiveAnalysis, setHasActiveAnalysis] = useState(false);
+  const [analyses, setAnalyses] = useState<Analysis[]>([]);
   const [email, setEmail] = useState("");
   const [accessError, setAccessError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [analysisStarting, setAnalysisStarting] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [showEditPanel, setShowEditPanel] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editDescription, setEditDescription] = useState("");
 
   const handleRequestError = useCallback((requestError: unknown) => {
     const status = errorStatus(requestError);
@@ -89,6 +94,7 @@ export default function ProjectDetailPage() {
     try {
       const response = await api.get<Analysis[]>("/analyses/", { params: { project_id: projectId } });
       const analyses = Array.isArray(response.data) ? response.data : [];
+      setAnalyses(analyses);
       setHasActiveAnalysis(analyses.some((analysis) => analysis.status === "PENDING" || analysis.status === "RUNNING"));
     } catch (requestError) {
       const status = errorStatus(requestError);
@@ -184,6 +190,16 @@ export default function ProjectDetailPage() {
     }
   }
 
+  async function updateProjectDetails(event: FormEvent) {
+    event.preventDefault();
+    if (!project) return;
+    try {
+      const updated = await updateProject(project.id, { name: editName, description: editDescription || null });
+      setProject(updated);
+      setShowEditPanel(false);
+    } catch (requestError) { handleRequestError(requestError); }
+  }
+
   if (loading) return <p>프로젝트를 불러오는 중...</p>;
   if (error && !project) return <p role="alert">{error}</p>;
   if (!project) return <p role="alert">{NOT_FOUND_MESSAGE}</p>;
@@ -198,6 +214,7 @@ export default function ProjectDetailPage() {
         </div>
         {user?.role === "ADMIN" && (
           <div className="flex gap-2">
+            <button type="button" onClick={() => { setEditName(project.name); setEditDescription(project.description ?? ""); setShowEditPanel(true); }} className="rounded border px-3 py-2 text-sm">프로젝트 수정</button>
             <div>
               <button
                 type="button"
@@ -230,6 +247,10 @@ export default function ProjectDetailPage() {
         <p className="mt-2 text-sm">상태: {project.source_status === "REGISTERED" ? "등록됨" : "등록 필요"}</p>
         <p className="mt-1 text-sm text-gray-600">감지된 언어: {project.target_languages?.join(", ") || "없음"}</p>
       </div>
+      <div className="mt-6 rounded border p-4">
+        <h2 className="text-sm font-semibold">분석 이력</h2>
+        {analyses.length === 0 ? <p className="mt-2 text-sm text-gray-600">아직 분석 이력이 없습니다.</p> : <ul className="mt-3 space-y-2">{analyses.map((analysis) => <li key={analysis.id}><Link className="text-sm underline" to={`/projects/${project.id}/analyses/${analysis.id}`}>분석 #{analysis.id} · {analysis.status}</Link></li>)}</ul>}
+      </div>
       {error && <p role="alert" className="mt-4 text-sm text-red-600">{error}</p>}
       {showSourceUploadPanel && user?.role === "ADMIN" && (
         <SourceUploadDrawer
@@ -239,6 +260,7 @@ export default function ProjectDetailPage() {
           onRequestError={handleRequestError}
         />
       )}
+      {showEditPanel && user?.role === "ADMIN" && <ActionDrawer title="프로젝트 수정" onClose={() => setShowEditPanel(false)} footer={<button type="submit" form="edit-project" className="w-full">저장</button>}><form id="edit-project" onSubmit={updateProjectDetails} className="space-y-3"><label className="block">프로젝트 이름<input required value={editName} onChange={(event) => setEditName(event.target.value)} /></label><label className="block">설명<textarea value={editDescription} onChange={(event) => setEditDescription(event.target.value)} /></label></form></ActionDrawer>}
       {showAccessPanel && user?.role === "ADMIN" && (
         <ActionDrawer
           title="접근권한 관리"

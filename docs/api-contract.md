@@ -214,7 +214,7 @@ MVP에서는 `DELETE /api/projects/{project_id}`를 제공하지 않는다. 프�
 
 서버는 `severity`, `mapping_status`(`KISA_MAPPED` 또는 `UNMAPPED`), `language`(`JAVA`, `JAVASCRIPT`, `PYTHON`), `limit`, `offset`을 처리한다. 응답은 `items`, `total`, `limit`, `offset`을 반환하며, 기본 `limit`은 50이고 서버 최대값은 100이다. 정렬은 `CRITICAL`, `HIGH`, `MEDIUM`, `LOW`, `UNKNOWN`, 상대 `file_path`, 시작 `line`, Finding ID 순으로 고정한다.
 
-결과 심각도는 `CRITICAL`, `HIGH`, `MEDIUM`, `LOW`, `UNKNOWN` 중 하나이며, 신뢰도는 `HIGH`, `MEDIUM`, `LOW`, `UNKNOWN` 중 하나다. 목록 `items`는 심각도, 진단 항목 명칭(`rule_name`), KISA 매핑 항목 식별자(`kisa_code`), 상대 파일 경로와 시작·끝 줄, 언어, 신뢰도, 매핑 상태만 포함하는 경량 응답이다. 매핑 상태는 `kisa_code`가 있는지에 따라 계산하며, 권한 있는 사용자는 두 결과를 모두 조회할 수 있다. KISA 카탈로그 API는 49개 기준 항목만 반환한다.
+결과 심각도는 `CRITICAL`, `HIGH`, `MEDIUM`, `LOW`, `UNKNOWN` 중 하나이며, 신뢰도는 `HIGH`, `MEDIUM`, `LOW`, `UNKNOWN` 중 하나다. 목록 `items`는 선택한 상세를 조회할 Finding ID(`id`)와 심각도, 진단 항목 명칭(`rule_name`), KISA 매핑 항목 식별자(`kisa_code`), 상대 파일 경로와 시작·끝 줄, 언어, 신뢰도, 매핑 상태만 포함하는 경량 응답이다. 매핑 상태는 `kisa_code`가 있는지에 따라 계산하며, 권한 있는 사용자는 두 결과를 모두 조회할 수 있다. KISA 카탈로그 API는 49개 기준 항목만 반환한다.
 
 ### `GET /api/findings/{finding_id}`
 

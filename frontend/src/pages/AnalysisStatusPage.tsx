@@ -5,6 +5,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { Analysis, createAnalysis, getAnalysis } from "../api/analyses";
 import { useAuth } from "../auth/useAuth";
 import { SESSION_EXPIRED_MESSAGE } from "../auth/RouteGuards";
+import FindingsPage from "./FindingsPage";
 
 const POLL_INTERVAL_MS = 3_000;
 const USER_FAILURE_MESSAGE = "분석을 완료하지 못했습니다. 관리자에게 문의하세요.";
@@ -24,6 +25,9 @@ export default function AnalysisStatusPage() {
     try {
       const next = await getAnalysis(analysisId);
       setAnalysis(next);
+      if (projectId && String(next.project_id) !== projectId) {
+        navigate(`/projects/${next.project_id}/analyses/${next.id}`, { replace: true });
+      }
       setTransportError(false);
       setPageError(null);
     } catch (error) {
@@ -37,7 +41,7 @@ export default function AnalysisStatusPage() {
     } finally {
       setLoading(false);
     }
-  }, [analysisId, clearUser, navigate]);
+  }, [analysisId, clearUser, navigate, projectId]);
 
   useEffect(() => {
     void loadAnalysis();
@@ -50,11 +54,11 @@ export default function AnalysisStatusPage() {
   }, [analysis?.status, loadAnalysis]);
 
   async function rerun() {
-    if (!projectId) return;
+    if (!analysis) return;
     setRerunning(true);
     try {
-      const next = await createAnalysis(projectId);
-      navigate(`/projects/${projectId}/analyses/${next.id}`);
+      const next = await createAnalysis(analysis.project_id);
+      navigate(`/projects/${next.project_id}/analyses/${next.id}`);
     } catch (error) {
       const status = (error as AxiosError).response?.status;
       if (status === 401) {
@@ -84,7 +88,7 @@ export default function AnalysisStatusPage() {
 
   return (
     <section>
-      <Link to={`/projects/${projectId}`} className="text-sm">프로젝트로 돌아가기</Link>
+      <Link to={`/projects/${analysis.project_id}`} className="text-sm">프로젝트로 돌아가기</Link>
       <h1 className="mt-4 text-2xl font-bold">분석 상태</h1>
       <p className="mt-2 text-sm">상태: {analysis.status}</p>
       {transportError && (
@@ -94,7 +98,7 @@ export default function AnalysisStatusPage() {
         </div>
       )}
       {(analysis.status === "PENDING" || analysis.status === "RUNNING") && <p className="mt-4">분석이 진행 중입니다. 상태를 자동으로 갱신합니다.</p>}
-      {analysis.status === "COMPLETED" && <p className="mt-4">분석이 완료되었습니다. 탐지 결과 목록은 다음 단계에서 제공합니다.</p>}
+      {analysis.status === "COMPLETED" && <div className="mt-6"><FindingsPage analysisId={analysis.id.toString()} /></div>}
       {analysis.status === "FAILED" && (
         <div role="alert" className="mt-4">
           <p>{user?.role === "ADMIN" ? analysis.error_message || USER_FAILURE_MESSAGE : USER_FAILURE_MESSAGE}</p>
