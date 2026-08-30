@@ -72,6 +72,7 @@ describe("authentication routes", () => {
   });
 
   it.each(["ADMIN", "USER"])("moves %s to /projects after login", async (role) => {
+    const submittedPassword = String(Date.now());
     getCurrentUser.mockRejectedValue({ response: { status: 401 } });
     login.mockResolvedValue({ email: `${role.toLowerCase()}@secscan.io`, role });
     api.get.mockResolvedValue({ data: [] });
@@ -81,7 +82,7 @@ describe("authentication routes", () => {
     fireEvent.change(screen.getByLabelText("이메일"), {
       target: { value: `${role.toLowerCase()}@secscan.io` },
     });
-    fireEvent.change(screen.getByLabelText("비밀번호"), { target: { value: "password" } });
+    fireEvent.change(screen.getByLabelText("비밀번호"), { target: { value: submittedPassword } });
     fireEvent.click(screen.getByRole("button", { name: "로그인" }));
 
     expect(await screen.findByRole("heading", { name: "프로젝트" })).toBeInTheDocument();
@@ -106,7 +107,7 @@ describe("authentication routes", () => {
 
     expect(await screen.findByRole("button", { name: "접근권한 관리" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "소스 등록" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "분석 실행" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "분석 실행" })).not.toBeInTheDocument();
   });
 
   it("opens an admin-only access drawer and closes it with Escape", async () => {
@@ -135,6 +136,8 @@ describe("authentication routes", () => {
 
     await waitFor(() => expect(screen.getByRole("button", { name: "소스 등록" })).toBeDisabled());
     expect(screen.getByText("분석이 끝난 뒤 업로드할 수 있습니다.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "분석 실행" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "분석 상태 보기" })).toHaveAttribute("href", "/projects/1/analyses/9");
   });
 
   it("does not render the access-management drawer for USER", async () => {
@@ -182,6 +185,7 @@ describe("authentication routes", () => {
   });
 
   it("does not persist role or authentication tokens in browser storage", async () => {
+    const submittedPassword = String(Date.now());
     const setItem = vi.fn();
     vi.stubGlobal("localStorage", { setItem });
     vi.stubGlobal("sessionStorage", { setItem });
@@ -192,7 +196,7 @@ describe("authentication routes", () => {
     renderApp("/login");
     await screen.findByRole("button", { name: "로그인" });
     fireEvent.change(screen.getByLabelText("이메일"), { target: { value: "user@secscan.io" } });
-    fireEvent.change(screen.getByLabelText("비밀번호"), { target: { value: "password" } });
+    fireEvent.change(screen.getByLabelText("비밀번호"), { target: { value: submittedPassword } });
     fireEvent.click(screen.getByRole("button", { name: "로그인" }));
 
     await waitFor(() => expect(login).toHaveBeenCalled());
@@ -211,25 +215,32 @@ describe("authentication routes", () => {
     const view = renderApp("/projects/1/analyses/7");
     await act(async () => { await Promise.resolve(); });
     expect(screen.getByText("상태: RUNNING")).toBeInTheDocument();
-    expect(api.get).toHaveBeenCalledTimes(1);
+    expect(api.get).toHaveBeenCalledTimes(2);
     await act(async () => { await Promise.resolve(); });
     await act(async () => { await vi.advanceTimersByTimeAsync(3_000); });
-    expect(api.get).toHaveBeenCalledTimes(2);
+    expect(api.get).toHaveBeenCalledTimes(3);
     view.unmount();
     await act(async () => { await vi.advanceTimersByTimeAsync(6_000); });
-    expect(api.get).toHaveBeenCalledTimes(2);
+    expect(api.get).toHaveBeenCalledTimes(3);
     vi.useRealTimers();
   });
 
   it("keeps a polling transport error refreshable instead of rendering it as failed", async () => {
     getCurrentUser.mockResolvedValue({ email: "admin@secscan.io", role: "ADMIN" });
-    api.get
-      .mockRejectedValueOnce({ response: { status: 500 } })
-      .mockResolvedValueOnce({
-        data: {
-          id: 7, project_id: 1, executed_by: 1, status: "COMPLETED", created_at: "2026-08-28T00:00:00Z",
-        },
-      });
+    let analysisRequestCount = 0;
+    api.get.mockImplementation((url: string) => {
+      if (url === "/analyses/7") {
+        analysisRequestCount += 1;
+        if (analysisRequestCount === 1) return Promise.reject({ response: { status: 500 } });
+        return Promise.resolve({
+          data: {
+            id: 7, project_id: 1, executed_by: 1, status: "COMPLETED", created_at: "2026-08-28T00:00:00Z",
+          },
+        });
+      }
+      if (url === "/projects/1") return Promise.resolve({ data: { name: "프로젝트" } });
+      return Promise.resolve({ data: { items: [], total: 0, limit: 50, offset: 0 } });
+    });
 
     renderApp("/projects/1/analyses/7");
     expect(await screen.findByText("상태를 갱신하지 못했습니다. 분석은 계속 진행 중일 수 있습니다.")).toBeInTheDocument();

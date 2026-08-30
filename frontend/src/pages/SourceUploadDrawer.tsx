@@ -114,24 +114,24 @@ export function SourceUploadDrawer({ projectId, onClose, onProjectRefresh, onReq
   }
 
   const footer = uploadState === "uploading" ? (
-    <button type="button" onClick={cancelUpload} className="w-full rounded border px-3 py-2 text-sm text-red-600">
+    <button type="button" onClick={cancelUpload} className="secscan-destructive-button w-full">
       업로드 취소
     </button>
   ) : uploadState === "succeeded" ? (
-    <button type="button" onClick={closeDrawer} className="w-full rounded bg-black px-3 py-2 text-sm text-white">
+    <button type="button" onClick={closeDrawer} className="secscan-primary-button w-full">
       확인
     </button>
   ) : uploadState === "failed" ? (
     <div className="flex gap-2">
-      <button type="button" onClick={closeDrawer} className="flex-1 rounded border px-3 py-2 text-sm">
+      <button type="button" onClick={closeDrawer} className="secscan-secondary-button flex-1">
         닫기
       </button>
-      <button type="button" onClick={startUpload} disabled={!file} className="flex-1 rounded bg-black px-3 py-2 text-sm text-white disabled:cursor-not-allowed disabled:opacity-50">
+      <button type="button" onClick={startUpload} disabled={!file} className="secscan-primary-button flex-1 disabled:cursor-not-allowed disabled:opacity-50">
         다시 시도
       </button>
     </div>
   ) : (
-    <button type="button" onClick={startUpload} disabled={!file} className="w-full rounded bg-black px-3 py-2 text-sm text-white disabled:cursor-not-allowed disabled:opacity-50">
+    <button type="button" onClick={startUpload} disabled={!file} className="secscan-primary-button w-full disabled:cursor-not-allowed disabled:opacity-50">
       소스 등록
     </button>
   );
@@ -139,11 +139,11 @@ export function SourceUploadDrawer({ projectId, onClose, onProjectRefresh, onReq
   return (
     <ActionDrawer title="소스 등록" onClose={closeDrawer} footer={footer}>
       {uploadState === "succeeded" ? (
-        <div aria-live="polite">
-          <p className="text-sm font-medium text-green-700">소스가 등록되었습니다.</p>
+        <div aria-live="polite" className="secscan-panel p-4">
+          <p className="text-sm font-semibold text-green-700">소스가 등록되었습니다.</p>
           <p className="mt-2 text-sm text-gray-600">분석은 자동으로 시작되지 않습니다.</p>
           <p className="mt-4 text-sm font-medium">감지된 언어</p>
-          <p className="mt-1 text-sm text-gray-600">{targetLanguages.join(", ") || "감지된 언어 없음"}</p>
+          <p className="mt-2 break-words text-sm text-gray-600">{targetLanguages.join(", ") || "감지된 언어 없음"}</p>
         </div>
       ) : (
         <>
@@ -157,17 +157,17 @@ export function SourceUploadDrawer({ projectId, onClose, onProjectRefresh, onReq
             disabled={uploadState === "uploading"}
             className="mt-2 block w-full text-sm"
           />
-          {file && <p className="mt-2 break-all text-sm text-gray-600">선택한 파일: {file.name}</p>}
+          {file && <p className="mt-3 break-all rounded-lg border border-secscan-border bg-secscan-surface-2 px-3 py-2 text-sm text-gray-600">선택한 파일: {file.name}</p>}
           {uploadState === "uploading" && (
-            <div className="mt-5" aria-live="polite">
+            <div className="secscan-panel mt-5 p-4" aria-live="polite">
               <div className="flex justify-between text-sm">
-                <span>업로드 중</span>
-                <span>{progress}%</span>
+                <span className="font-medium">업로드 중</span>
+                <span className="text-secscan-cyan">{progress}%</span>
               </div>
               <progress aria-label="업로드 진행률" className="mt-2 w-full" value={progress} max="100">{progress}%</progress>
             </div>
           )}
-          {error && <p role="alert" className="mt-4 text-sm text-red-600">{error}</p>}
+          {error && <p role="alert" className="secscan-error-state mt-4 text-sm">{error}</p>}
         </>
       )}
     </ActionDrawer>
