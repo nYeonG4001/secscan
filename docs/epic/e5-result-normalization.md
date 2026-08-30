@@ -101,6 +101,22 @@ E5는 E4가 실행한 Semgrep JSON 결과를 엔진 독립적인 진단 결과�
   - 실제 서비스 규칙이 모두 KISA에 매핑되어도, 미매핑 결과 보존은 테스트 전용 합성 Semgrep JSON fixture로 검증한다.
 - 테스트·증거: `backend/tests/test_e5_result_normalization.py`가 Java, JavaScript, Python의 실제 taint 취약 fixture 각 1건(KISA-005/002/043, HIGH, UNKNOWN)과 같은 sink의 정상 fixture 미탐지를 검증했다.
 
+## E5-10 자체 규칙 커버리지 확장
+
+- 상태: 결정 완료, 구현 전 (2026-08-30)
+- 요구사항 매핑: SFR-010, SFR-011, SFR-014, TST-004, TST-005, QLT-002, QLT-003, SEC-010
+- 결정과 근거: 초기 세 자체 규칙은 실제 탐지 범위를 정직하게 보여 주지만 카탈로그 49개 가운데 `부분 지원` 항목이 세 개뿐이다. 공식 또는 제3자 규칙을 가져오지 않고, KISA/CWE/OWASP 공개 기준을 근거로 독자 작성한 Java SQL 삽입, JavaScript DOM XSS, Python `open()` 경로 조작 규칙을 각각 한 개씩 추가한다. 모든 규칙은 제한된 source-to-sink 문법만 다루므로 `지원`으로 승격하지 않고 검증 뒤 `부분 지원`으로 표시한다. 자세한 범위와 제외 항목은 ADR-039를 따른다.
+- 완료 조건:
+  - `secscan.java.jdbc-statement-sql`은 Java `String` 매개변수에서 `executeQuery(String)` 또는 `executeUpdate(String)`으로 흐르는 SQL을 탐지하고 KISA-001에 매핑한다. bare `execute(String)`, `executeUpdate(String, int)`, PreparedStatement, ORM/JPA는 탐지하지 않는다.
+  - `secscan.javascript.dom-innerhtml`은 JavaScript 함수 매개변수에서 직접 `innerHTML =` 대입으로 흐르는 값을 탐지하고 KISA-004에 매핑한다. 복합 대입, React·템플릿·SSR·`insertAdjacentHTML`은 탐지하지 않는다.
+  - `secscan.python.open-user-path`는 Python 함수 매개변수에서 내장 `open()`으로 흐르는 경로를 탐지하고 KISA-003에 매핑한다. `Path.open`, `os.open`, `shutil`, 압축 해제와 업로드 경로 검증은 탐지하지 않는다.
+  - 각 신규 규칙은 `RULES_PROVENANCE.md`에 규칙 ID, KISA/CWE/OWASP 근거, source·sink, 타입·이름 기반 매칭 한계를 기록한다.
+  - 각 신규 취약 fixture는 실제 Semgrep OSS를 고정 YAML 파일과 `--no-rewrite-rule-ids`로 직접 실행해 정확히 한 건의 접두어 없는 `check_id`를 낸다. 이 값, KISA 매핑 시드와 기대 Finding ID가 일치한다.
+  - 각 신규 정상 fixture는 검증 대상 규칙의 미탐지를 확인한다. Java PreparedStatement와 Python 고정 경로 fixture는 모든 안전화 기법을 인증하는 테스트가 아니라, 이번 sink 형태가 없음을 검증하는 범위로 설명한다.
+  - 여섯 매핑 KISA 항목(KISA-001/002/003/004/005/043)만 `부분 지원`이고, 나머지 항목은 구현 검증 전까지 `미지원`으로 유지한다.
+  - 신규 규칙·매핑·fixture의 집중 테스트와 전용 PostgreSQL 전체 백엔드 pytest, Ruff, `git diff --check`를 통과한다.
+- 테스트·증거: 구현 후 `backend/tests/test_e5_result_normalization.py`의 신규 fixture·매핑 테스트, 실제 Semgrep CLI 출력, 전용 PostgreSQL 전체 회귀 결과를 기록한다.
+
 ## 구현·검증 결과
 
 - E5-01~06, E5-09: `semgrep_parser.py`와 `finding_normalizer.py`가 Semgrep 결과를 정규화하고, KISA 매핑·스냅샷·지문 중복 제거를 하나의 DB 트랜잭션으로 저장한다.

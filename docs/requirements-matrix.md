@@ -99,6 +99,10 @@ E5의 백엔드 결과 정규화·KISA 매핑·저장 범위는 완료했다. �
 | TST-004, TST-005 | 언어별 취약 fixture는 매핑된 HIGH/UNKNOWN Finding 1건을 만들고, 같은 sink를 고정값으로 호출하는 정상 fixture는 해당 규칙이 탐지되지 않음을 확인했다. 합성 JSON fixture로 미매핑 보존과 지문 중복 제거도 확인했다. | E5 집중 20개 통과, 전체 backend pytest 208개 통과 |
 | QLT-001, QLT-002, QLT-003, QLT-004, QLT-005 | Semgrep 전용 파서와 엔진 중립 정규화·저장 서비스를 분리하고, `KISA_RULE_MAPPING(engine, engine_rule_id)` UNIQUE와 Finding 지문 UNIQUE로 확장·정합성 경계를 강제했다. | `ruff check app tests`, `git diff --check` 통과 |
 
+## E5 자체 규칙 확장 설계 (2026-08-30)
+
+E5-10은 구현 전 결정 단계다. 자체 작성 Semgrep taint 규칙 세 개를 추가해 KISA-001(SQL 삽입, Java), KISA-004(크로스사이트 스크립트, JavaScript), KISA-003(경로 조작 및 자원 삽입, Python)을 검증 뒤 `부분 지원`으로 표시한다. 이로써 초기 세 매핑에 더해 여섯 항목을 `부분 지원`으로 만들 계획이지만, 모든 KISA 변형을 포괄한다는 `지원` 표시는 하지 않는다. 규칙별 source·sink, 제외 범위, 실제 Semgrep `check_id` 확인, mapping seed, 취약·정상 fixture와 회귀 검증 조건은 ADR-039와 E5-10에 기록했다. 구현·검증 증거가 추가되기 전 상태 열은 변경하지 않는다.
+
 ## E6 구현 증거 (2026-08-29)
 
 | 관련 요구사항 | E6 구현 근거 | 검증 |
