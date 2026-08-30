@@ -20,6 +20,10 @@ function errorStatus(error: unknown) {
   return (error as AxiosError).response?.status;
 }
 
+function sourceStatusLabel(status: Project["source_status"]) {
+  return status === "REGISTERED" ? "등록됨" : "등록 필요";
+}
+
 export default function ProjectsPage() {
   const { clearUser, user } = useAuth();
   const navigate = useNavigate();
@@ -68,31 +72,51 @@ export default function ProjectsPage() {
     };
   }, [clearUser, navigate]);
 
-  if (loading) return <p>프로젝트를 불러오는 중...</p>;
-  if (error) return <p role="alert">{error}</p>;
+  if (loading) return <section className="secscan-loading-state" aria-busy="true">프로젝트를 불러오는 중...</section>;
+  if (error) return <section role="alert" className="secscan-error-state">{error}</section>;
 
   return (
-    <section>
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">프로젝트</h1>
-          <p className="mt-1 text-sm text-gray-500">접근 권한이 있는 프로젝트를 확인합니다.</p>
+    <section className="min-w-0">
+      <nav aria-label="경로" className="text-sm text-secscan-muted">
+        <span className="text-secscan-foreground">프로젝트</span>
+      </nav>
+      <div className="mb-7 mt-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-3xl font-bold tracking-tight">프로젝트</h1>
+          <p className="mt-2 max-w-2xl text-sm text-secscan-muted">등록된 프로젝트를 선택해 소스 등록, 분석 실행, 결과 조회를 진행합니다.</p>
         </div>
-        {user?.role === "ADMIN" && <button type="button" onClick={() => setShowCreate(true)}>새 프로젝트</button>}
+        {user?.role === "ADMIN" && <button type="button" onClick={() => setShowCreate(true)} className="secscan-primary-button shrink-0">새 프로젝트</button>}
       </div>
       {projects.length === 0 ? (
-        <p className="text-sm text-gray-500">표시할 프로젝트가 없습니다.</p>
+        <div className="secscan-empty-state">
+          <p className="font-medium text-secscan-foreground">표시할 프로젝트가 없습니다.</p>
+          {user?.role === "ADMIN" && <p className="mt-2 text-sm">새 프로젝트를 등록해 소스 분석을 시작할 수 있습니다.</p>}
+        </div>
       ) : (
-        <ul className="space-y-3">
+        <ul className="secscan-panel overflow-hidden divide-y divide-secscan-border">
           {projects.map((project) => (
-            <li key={project.id} className="rounded border bg-white p-4">
-              <Link to={`/projects/${project.id}`} className="font-semibold">{project.name}</Link>
-              {project.description && <p className="mt-1 text-sm text-gray-600">{project.description}</p>}
+            <li key={project.id} className="min-w-0">
+              <Link to={`/projects/${project.id}`} className="secscan-panel-interactive block min-w-0 px-5 py-4 focus-visible:relative">
+                <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="min-w-0 lg:max-w-xl">
+                    <p className="break-words font-semibold text-secscan-foreground">{project.name}</p>
+                    {project.description && <p className="mt-1 break-words text-sm text-secscan-muted">{project.description}</p>}
+                  </div>
+                  <div className="flex min-w-0 flex-wrap items-center gap-2 text-xs">
+                    {project.target_languages?.map((language) => (
+                      <span key={language} className="secscan-status-badge secscan-status-neutral">{language}</span>
+                    ))}
+                    <span className={`secscan-status-badge ${project.source_status === "REGISTERED" ? "secscan-status-success" : "secscan-status-neutral"}`}>
+                      {sourceStatusLabel(project.source_status)}
+                    </span>
+                  </div>
+                </div>
+              </Link>
             </li>
           ))}
         </ul>
       )}
-      {showCreate && user?.role === "ADMIN" && <ActionDrawer title="새 프로젝트" onClose={() => setShowCreate(false)} footer={<button type="submit" form="create-project" className="w-full">등록</button>}><form id="create-project" onSubmit={submitCreate} className="space-y-3"><label className="block">프로젝트 이름<input required value={name} onChange={(event) => setName(event.target.value)} /></label><label className="block">설명<textarea value={description} onChange={(event) => setDescription(event.target.value)} /></label></form></ActionDrawer>}
+      {showCreate && user?.role === "ADMIN" && <ActionDrawer title="새 프로젝트" onClose={() => setShowCreate(false)} footer={<button type="submit" form="create-project" className="secscan-primary-button w-full">등록</button>}><form id="create-project" onSubmit={submitCreate} className="space-y-4"><label className="block text-sm font-medium">프로젝트 이름<input required value={name} onChange={(event) => setName(event.target.value)} className="mt-2" /></label><label className="block text-sm font-medium">설명<textarea value={description} onChange={(event) => setDescription(event.target.value)} className="mt-2" /></label></form></ActionDrawer>}
     </section>
   );
 }

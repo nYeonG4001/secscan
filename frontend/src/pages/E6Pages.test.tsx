@@ -118,6 +118,19 @@ describe("E6 results and catalog pages", () => {
     await waitFor(() => expect(auth.clearUser).toHaveBeenCalledOnce());
   });
 
+  it("reveals compact result filters and keeps their API query values", async () => {
+    getFindings.mockResolvedValue({ items: [finding], total: 1, limit: 50, offset: 0 });
+
+    renderPage(<FindingsPage analysisId="4" />);
+
+    expect(await screen.findByRole("button", { name: "필터" })).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(screen.getByRole("button", { name: "필터" }));
+    fireEvent.change(screen.getByLabelText("심각도 필터"), { target: { value: "HIGH" } });
+
+    await waitFor(() => expect(getFindings).toHaveBeenLastCalledWith("4", expect.objectContaining({ severity: "HIGH", limit: 50, offset: 0 })));
+    expect(screen.getByRole("button", { name: "필터 1" })).toHaveAttribute("aria-expanded", "true");
+  });
+
   it("keeps catalog search and filters read-only for USER", async () => {
     auth.user = { email: "user@secscan.io", role: "USER" };
     getCatalog.mockResolvedValue([catalogItem]);
@@ -130,6 +143,16 @@ describe("E6 results and catalog pages", () => {
       target: { value: "없는 항목" },
     });
     expect(screen.getByText("현재 조건에 맞는 카탈로그 항목이 없습니다.")).toBeInTheDocument();
+  });
+
+  it("keeps the catalog list visible beside the selected inspection panel", async () => {
+    getCatalog.mockResolvedValue([catalogItem]);
+
+    renderPage(<CatalogPage />);
+    fireEvent.click(await screen.findByRole("button", { name: /운영체제 명령어 삽입/ }));
+
+    expect(screen.getByTestId("catalog-list")).toBeInTheDocument();
+    expect(screen.getByLabelText("카탈로그 상세")).toBeInTheDocument();
   });
 
   it("shows the documented catalog 403 guidance and supports retry", async () => {

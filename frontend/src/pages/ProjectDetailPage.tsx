@@ -33,6 +33,17 @@ function errorStatus(error: unknown) {
   return (error as AxiosError).response?.status;
 }
 
+function sourceStatusLabel(status: Project["source_status"]) {
+  return status === "REGISTERED" ? "등록됨" : "등록 필요";
+}
+
+function analysisStatusPresentation(status: Analysis["status"]) {
+  if (status === "RUNNING") return { label: "분석 진행 중", className: "secscan-status-active" };
+  if (status === "PENDING") return { label: "분석 대기", className: "secscan-status-neutral" };
+  if (status === "COMPLETED") return { label: "분석 완료", className: "secscan-status-success" };
+  return { label: "분석 실패", className: "secscan-status-failed" };
+}
+
 export default function ProjectDetailPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const { user, clearUser } = useAuth();
@@ -200,58 +211,107 @@ export default function ProjectDetailPage() {
     } catch (requestError) { handleRequestError(requestError); }
   }
 
-  if (loading) return <p>프로젝트를 불러오는 중...</p>;
-  if (error && !project) return <p role="alert">{error}</p>;
-  if (!project) return <p role="alert">{NOT_FOUND_MESSAGE}</p>;
+  if (loading) return <section className="secscan-loading-state" aria-busy="true">프로젝트를 불러오는 중...</section>;
+  if (error && !project) return <section role="alert" className="secscan-error-state">{error}</section>;
+  if (!project) return <section role="alert" className="secscan-error-state">{NOT_FOUND_MESSAGE}</section>;
+
+  const currentAnalysis = analyses.find((analysis) => analysis.status === "RUNNING" || analysis.status === "PENDING") ?? analyses[0];
+  const currentStatus = currentAnalysis ? analysisStatusPresentation(currentAnalysis.status) : null;
+  const sourceRegistered = project.source_status === "REGISTERED";
 
   return (
-    <section>
-      <Link to="/projects" className="text-sm">프로젝트 목록</Link>
-      <div className="mt-4 flex items-start justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">{project.name}</h1>
-          {project.description && <p className="mt-2 text-gray-600">{project.description}</p>}
+    <section className="min-w-0">
+      <nav aria-label="경로" className="flex min-w-0 items-center gap-2 text-sm text-secscan-muted">
+        <Link to="/projects" className="shrink-0 underline decoration-secscan-border underline-offset-4 hover:text-secscan-foreground">프로젝트</Link>
+        <span aria-hidden="true">&gt;</span>
+        <span className="min-w-0 truncate text-secscan-foreground" title={project.name}>{project.name}</span>
+      </nav>
+      <div className="mt-5 flex min-w-0 flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
+        <div className="min-w-0">
+          <h1 className="break-words text-3xl font-bold tracking-tight">{project.name}</h1>
+          {project.description && <p className="mt-3 max-w-2xl break-words text-sm text-secscan-muted">{project.description}</p>}
+          <div className="mt-4 flex min-w-0 flex-wrap gap-2">
+            {project.target_languages?.map((language) => <span key={language} className="secscan-status-badge secscan-status-neutral">{language}</span>)}
+          </div>
         </div>
         {user?.role === "ADMIN" && (
-          <div className="flex gap-2">
-            <button type="button" onClick={() => { setEditName(project.name); setEditDescription(project.description ?? ""); setShowEditPanel(true); }} className="rounded border px-3 py-2 text-sm">프로젝트 수정</button>
-            <div>
-              <button
-                type="button"
-                onClick={() => setShowSourceUploadPanel(true)}
-                disabled={hasActiveAnalysis}
-                className="rounded border px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                소스 등록
-              </button>
-              {hasActiveAnalysis && <p className="mt-1 text-xs text-gray-600">분석이 끝난 뒤 업로드할 수 있습니다.</p>}
+          <div className="flex min-w-0 flex-col items-stretch gap-3 xl:items-end">
+            <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:justify-end">
+              <div className="min-w-0">
+                <button
+                  type="button"
+                  onClick={() => setShowSourceUploadPanel(true)}
+                  disabled={hasActiveAnalysis}
+                  className={`${sourceRegistered ? "secscan-secondary-button" : "secscan-primary-button"} w-full disabled:cursor-not-allowed disabled:opacity-50`}
+                >
+                  {sourceRegistered ? "소스 교체" : "소스 등록"}
+                </button>
+                {hasActiveAnalysis && <p className="mt-2 max-w-xs break-words text-xs text-red-300">분석이 끝난 뒤 업로드할 수 있습니다.</p>}
+                {!sourceRegistered && !hasActiveAnalysis && <p className="mt-2 max-w-xs break-words text-xs text-secscan-muted">소스를 등록한 뒤 분석할 수 있습니다.</p>}
+              </div>
+              {sourceRegistered && !hasActiveAnalysis && (
+                <button
+                  type="button"
+                  onClick={() => void startAnalysis()}
+                  disabled={analysisStarting}
+                  className="secscan-primary-button disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {analysisStarting ? "분석 요청 중..." : "분석 실행"}
+                </button>
+              )}
             </div>
-            <div>
-              <button
-                type="button"
-                onClick={() => void startAnalysis()}
-                disabled={project.source_status !== "REGISTERED" || hasActiveAnalysis || analysisStarting}
-                className="rounded border px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {analysisStarting ? "분석 요청 중..." : "분석 실행"}
-              </button>
-              {project.source_status !== "REGISTERED" && <p className="mt-1 text-xs text-gray-600">소스를 등록한 뒤 분석할 수 있습니다.</p>}
-              {hasActiveAnalysis && <p className="mt-1 text-xs text-gray-600">진행 중인 분석이 있습니다.</p>}
+            <div className="flex flex-wrap items-center gap-2 border-t border-secscan-border pt-3 text-sm xl:justify-end">
+              <span className="mr-1 text-xs font-semibold text-secscan-muted">관리</span>
+              <button type="button" onClick={() => { setEditName(project.name); setEditDescription(project.description ?? ""); setShowEditPanel(true); }} className="secscan-secondary-button px-3 py-1.5">프로젝트 수정</button>
+              <button type="button" onClick={openAccessPanel} className="secscan-secondary-button px-3 py-1.5">접근권한 관리</button>
             </div>
-            <button type="button" onClick={openAccessPanel} className="rounded border px-3 py-2 text-sm">접근권한 관리</button>
           </div>
         )}
       </div>
-      <div className="mt-6 rounded border p-4">
-        <h2 className="text-sm font-semibold">소스 정보</h2>
-        <p className="mt-2 text-sm">상태: {project.source_status === "REGISTERED" ? "등록됨" : "등록 필요"}</p>
-        <p className="mt-1 text-sm text-gray-600">감지된 언어: {project.target_languages?.join(", ") || "없음"}</p>
+      <div className="secscan-panel mt-7 flex min-w-0 flex-col gap-5 p-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold">소스 등록 상태</p>
+          <p className="mt-2 text-sm text-secscan-muted">소스 등록 후 분석을 실행할 수 있습니다.</p>
+        </div>
+        <div className="min-w-0 shrink-0">
+          <span className={`secscan-status-badge ${project.source_status === "REGISTERED" ? "secscan-status-success" : "secscan-status-neutral"}`}>
+            {sourceStatusLabel(project.source_status)}
+          </span>
+        </div>
       </div>
-      <div className="mt-6 rounded border p-4">
-        <h2 className="text-sm font-semibold">분석 이력</h2>
-        {analyses.length === 0 ? <p className="mt-2 text-sm text-gray-600">아직 분석 이력이 없습니다.</p> : <ul className="mt-3 space-y-2">{analyses.map((analysis) => <li key={analysis.id}><Link className="text-sm underline" to={`/projects/${project.id}/analyses/${analysis.id}`}>분석 #{analysis.id} · {analysis.status}</Link></li>)}</ul>}
-      </div>
-      {error && <p role="alert" className="mt-4 text-sm text-red-600">{error}</p>}
+      {analyses.length === 0 ? (
+        <div className="secscan-empty-state mt-5 text-sm">아직 분석 이력이 없습니다.</div>
+      ) : (
+        <>
+          <div className="secscan-panel mt-5 flex min-w-0 flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold">{hasActiveAnalysis ? "진행 중인 분석" : "최근 분석 상태"}</p>
+              {hasActiveAnalysis && <p className="mt-2 text-sm text-secscan-muted">분석이 끝나면 결과를 확인할 수 있습니다.</p>}
+            </div>
+            <div className="flex min-w-0 flex-wrap items-center gap-3">
+              {currentStatus && <span className={`secscan-status-badge ${currentStatus.className}`}>{currentStatus.label}</span>}
+              {currentAnalysis && <Link to={`/projects/${project.id}/analyses/${currentAnalysis.id}`} className="secscan-secondary-button shrink-0 px-3 py-1.5 text-xs">{hasActiveAnalysis ? "분석 상태 보기" : "최근 분석 보기"}</Link>}
+            </div>
+          </div>
+          <div className="mt-8">
+            <h2 className="text-xl font-bold">분석 이력</h2>
+          <ul className="secscan-panel mt-4 overflow-hidden divide-y divide-secscan-border">
+            {analyses.map((analysis) => {
+              const presentation = analysisStatusPresentation(analysis.status);
+              return (
+                <li key={analysis.id} className="min-w-0">
+                  <Link to={`/projects/${project.id}/analyses/${analysis.id}`} className="secscan-panel-interactive flex min-w-0 flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between focus-visible:relative">
+                    <span className="min-w-0 break-words text-sm font-medium">분석 #{analysis.id} · {analysis.status}</span>
+                    <span className={`secscan-status-badge shrink-0 ${presentation.className}`}>{presentation.label}</span>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+          </div>
+        </>
+      )}
+      {error && <p role="alert" className="secscan-error-state mt-5 text-sm">{error}</p>}
       {showSourceUploadPanel && user?.role === "ADMIN" && (
         <SourceUploadDrawer
           projectId={projectId ?? ""}
@@ -260,23 +320,23 @@ export default function ProjectDetailPage() {
           onRequestError={handleRequestError}
         />
       )}
-      {showEditPanel && user?.role === "ADMIN" && <ActionDrawer title="프로젝트 수정" onClose={() => setShowEditPanel(false)} footer={<button type="submit" form="edit-project" className="w-full">저장</button>}><form id="edit-project" onSubmit={updateProjectDetails} className="space-y-3"><label className="block">프로젝트 이름<input required value={editName} onChange={(event) => setEditName(event.target.value)} /></label><label className="block">설명<textarea value={editDescription} onChange={(event) => setEditDescription(event.target.value)} /></label></form></ActionDrawer>}
+      {showEditPanel && user?.role === "ADMIN" && <ActionDrawer title="프로젝트 수정" onClose={() => setShowEditPanel(false)} footer={<button type="submit" form="edit-project" className="secscan-primary-button w-full">저장</button>}><form id="edit-project" onSubmit={updateProjectDetails} className="space-y-4"><label className="block text-sm font-medium">프로젝트 이름<input required value={editName} onChange={(event) => setEditName(event.target.value)} className="mt-2" /></label><label className="block text-sm font-medium">설명<textarea value={editDescription} onChange={(event) => setEditDescription(event.target.value)} className="mt-2" /></label></form></ActionDrawer>}
       {showAccessPanel && user?.role === "ADMIN" && (
         <ActionDrawer
           title="접근권한 관리"
           onClose={closeAccessPanel}
-          footer={<button type="submit" form="grant-access-form" className="w-full rounded bg-black px-3 py-2 text-sm text-white">접근권한 부여</button>}
+          footer={<button type="submit" form="grant-access-form" className="secscan-primary-button w-full">접근권한 부여</button>}
         >
-          {accessError && <p role="alert" className="mb-4 text-sm text-red-600">{accessError}</p>}
+          {accessError && <p role="alert" className="secscan-error-state mb-4 text-sm">{accessError}</p>}
           <form id="grant-access-form" onSubmit={grantAccess}>
             <label htmlFor="access-email" className="text-sm font-medium">사용자 이메일</label>
             <input id="access-email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} required className="mt-2 w-full rounded border px-3 py-2" />
           </form>
           <ul className="mt-6 space-y-2">
             {accesses.map((access) => (
-              <li key={access.id} className="flex items-center justify-between gap-3 border-b pb-2 text-sm">
-                <span>{access.user_email}</span>
-                <button type="button" onClick={() => revokeAccess(access.user_id)} className="rounded border px-2 py-1">해제</button>
+              <li key={access.id} className="flex min-w-0 items-center justify-between gap-3 border-b border-secscan-border pb-3 text-sm">
+                <span className="min-w-0 break-all">{access.user_email}</span>
+                <button type="button" onClick={() => revokeAccess(access.user_id)} className="secscan-destructive-button shrink-0 px-2 py-1">해제</button>
               </li>
             ))}
           </ul>
