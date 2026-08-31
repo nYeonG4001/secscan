@@ -145,6 +145,28 @@ def test_admin_analysis_list_includes_admin_only_fields(client, db_session, seed
     assert "source_snapshot_location" not in body
 
 
+def test_analysis_list_orders_latest_request_first(client, db_session, seeded_analysis):
+    admin = seeded_analysis["admin"]
+    first = seeded_analysis["analysis"]
+    second = Analysis(
+        project_id=seeded_analysis["project"].id,
+        executed_by=admin.id,
+        status="COMPLETED",
+    )
+    db_session.add(second)
+    db_session.commit()
+
+    token = login(client, admin.email)
+    response = client.get(
+        "/analyses/",
+        params={"project_id": seeded_analysis["project"].id},
+        headers=auth_headers(token),
+    )
+
+    assert response.status_code == 200
+    assert [item["id"] for item in response.json()] == [second.id, first.id]
+
+
 def test_user_analysis_detail_excludes_admin_only_and_snapshot_fields(
     client, db_session, seeded_analysis
 ):

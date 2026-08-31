@@ -118,17 +118,18 @@ describe("E6 results and catalog pages", () => {
     await waitFor(() => expect(auth.clearUser).toHaveBeenCalledOnce());
   });
 
-  it("reveals compact result filters and keeps their API query values", async () => {
+  it("shows direct result filters and keeps their API query values", async () => {
     getFindings.mockResolvedValue({ items: [finding], total: 1, limit: 50, offset: 0 });
 
     renderPage(<FindingsPage analysisId="4" />);
 
-    expect(await screen.findByRole("button", { name: "필터" })).toHaveAttribute("aria-expanded", "false");
-    fireEvent.click(screen.getByRole("button", { name: "필터" }));
-    fireEvent.change(screen.getByLabelText("심각도 필터"), { target: { value: "HIGH" } });
+    const severityFilter = await screen.findByLabelText("심각도 필터");
+    expect(screen.getByLabelText("KISA 매핑 필터")).toBeInTheDocument();
+    expect(screen.getByLabelText("언어 필터")).toBeInTheDocument();
+    fireEvent.change(severityFilter, { target: { value: "HIGH" } });
 
     await waitFor(() => expect(getFindings).toHaveBeenLastCalledWith("4", expect.objectContaining({ severity: "HIGH", limit: 50, offset: 0 })));
-    expect(screen.getByRole("button", { name: "필터 1" })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("button", { name: "필터 초기화" })).toBeInTheDocument();
   });
 
   it("keeps catalog search and filters read-only for USER", async () => {
@@ -138,7 +139,8 @@ describe("E6 results and catalog pages", () => {
     renderPage(<CatalogPage />);
 
     expect(await screen.findByText("운영체제 명령어 삽입")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "새 진단 기준" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "진단 기준 등록" })).not.toBeInTheDocument();
+    expect(screen.getByLabelText("분류 필터")).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("카탈로그 검색"), {
       target: { value: "없는 항목" },
     });
@@ -149,7 +151,7 @@ describe("E6 results and catalog pages", () => {
     getCatalog.mockResolvedValue([catalogItem]);
 
     renderPage(<CatalogPage />);
-    fireEvent.click(await screen.findByRole("button", { name: /운영체제 명령어 삽입/ }));
+    fireEvent.click(await screen.findByText("운영체제 명령어 삽입"));
 
     expect(screen.getByTestId("catalog-list")).toBeInTheDocument();
     expect(screen.getByLabelText("카탈로그 상세")).toBeInTheDocument();
@@ -172,12 +174,38 @@ describe("E6 results and catalog pages", () => {
 
     renderPage(<CatalogPage />);
 
-    fireEvent.click(await screen.findByRole("button", { name: "새 진단 기준" }));
-    const dialog = await screen.findByRole("dialog", { name: "새 진단 기준" });
+    fireEvent.click(await screen.findByRole("button", { name: "진단 기준 등록" }));
+    const dialog = await screen.findByRole("dialog", { name: "진단 기준 등록" });
     expect(dialog).toBeInTheDocument();
     expect(screen.getByLabelText("KISA 코드")).toBeRequired();
     expect(screen.getByLabelText("기본 심각도")).toBeRequired();
     expect(screen.queryByLabelText("조치 권고")).not.toBeInTheDocument();
+  });
+
+  it("edits only allowed catalog fields and enables save after a change", async () => {
+    getCatalog.mockResolvedValue([catalogItem]);
+    updateCatalog.mockResolvedValue({ ...catalogItem, active: false });
+
+    renderPage(<CatalogPage />);
+    fireEvent.click(await screen.findByText("운영체제 명령어 삽입"));
+
+    expect(screen.getByLabelText("진단 항목 코드")).toHaveAttribute("readonly");
+    expect(screen.getByLabelText("기준명")).toHaveAttribute("readonly");
+    expect(screen.getByLabelText("분류")).toHaveAttribute("readonly");
+    expect(screen.queryByRole("button", { name: "수정" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "변경 사항 저장" })).toBeDisabled();
+
+    fireEvent.click(screen.getByLabelText("활성 여부"));
+    fireEvent.click(screen.getByRole("button", { name: "변경 사항 저장" }));
+
+    await waitFor(() => expect(updateCatalog).toHaveBeenCalledWith("KISA-005", {
+      description: "설명",
+      reference_info: null,
+      active: false,
+      default_severity: "HIGH",
+      implementation_status: "부분 지원",
+      recommendation: "외부 입력을 검증합니다.",
+    }));
   });
 
   it("opens the ADMIN project drawer and submits only the supported fields", async () => {
@@ -196,5 +224,27 @@ describe("E6 results and catalog pages", () => {
     await waitFor(() => {
       expect(createProject).toHaveBeenCalledWith({ name: "새 프로젝트", description: "설명" });
     });
+  });
+
+  it("renders the project summary table with source and latest analysis status", async () => {
+    api.get.mockResolvedValue({
+      data: [{
+        id: 4,
+        name: "고객 포털 웹 서비스",
+        description: "설명은 목록에서 숨긴다.",
+        target_languages: ["JAVA", "JAVASCRIPT"],
+        source_status: "REGISTERED",
+        latest_analysis_status: "COMPLETED",
+        updated_at: "2026-08-30T12:00:00Z",
+      }],
+    });
+
+    renderPage(<ProjectsPage />);
+
+    expect(await screen.findByRole("columnheader", { name: "프로젝트명" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "최근 분석 상태" })).toBeInTheDocument();
+    expect(screen.getByText("등록됨")).toBeInTheDocument();
+    expect(screen.getByText("분석 완료")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "고객 포털 웹 서비스" })).toHaveAttribute("href", "/projects/4");
   });
 });

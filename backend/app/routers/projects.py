@@ -4,6 +4,7 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile, status
 from fastapi.responses import JSONResponse
+from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -54,6 +55,41 @@ def _to_project_access_out(access: ProjectAccess) -> ProjectAccessOut:
     )
 
 
+def _to_project_out(project: Project, latest_analysis_status: Optional[str] = None) -> ProjectOut:
+    return ProjectOut(
+        id=project.id,
+        name=project.name,
+        description=project.description,
+        source_type=project.source_type,
+        target_languages=project.target_languages,
+        source_status="REGISTERED" if project.source_location else "NEEDS_UPLOAD",
+        latest_analysis_status=latest_analysis_status,
+        created_by=project.created_by,
+        created_at=project.created_at,
+        updated_at=project.updated_at,
+    )
+
+
+def _latest_analysis_statuses(db: Session, project_ids: List[int]) -> dict[int, str]:
+    if not project_ids:
+        return {}
+
+    latest_analysis_ids = (
+        db.query(
+            Analysis.project_id.label("project_id"),
+            func.max(Analysis.id).label("analysis_id"),
+        )
+        .filter(Analysis.project_id.in_(project_ids))
+        .group_by(Analysis.project_id)
+        .subquery()
+    )
+    return dict(
+        db.query(Analysis.project_id, Analysis.status)
+        .join(latest_analysis_ids, Analysis.id == latest_analysis_ids.c.analysis_id)
+        .all()
+    )
+
+
 def _unique_display_name(
     db: Session, name: str, *, exclude_project_id: Optional[int] = None
 ) -> str:
@@ -76,17 +112,28 @@ def _unique_display_name(
 @router.get("/", response_model=List[ProjectOut])
 def list_projects(db: Session = Depends(get_db), current_user=Depends(get_current_user)):
     if current_user.role == "ADMIN":
-        return db.query(Project).all()
-    accesses = (
-        db.query(ProjectAccess).filter(ProjectAccess.user_id == current_user.id).all()
-    )
-    project_ids = [a.project_id for a in accesses]
-    return db.query(Project).filter(Project.id.in_(project_ids)).all()
+        projects = db.query(Project).order_by(Project.updated_at.desc(), Project.id.desc()).all()
+    else:
+        accesses = (
+            db.query(ProjectAccess).filter(ProjectAccess.user_id == current_user.id).all()
+        )
+        project_ids = [access.project_id for access in accesses]
+        projects = (
+            db.query(Project)
+            .filter(Project.id.in_(project_ids))
+            .order_by(Project.updated_at.desc(), Project.id.desc())
+            .all()
+        )
+    latest_statuses = _latest_analysis_statuses(db, [project.id for project in projects])
+    return [_to_project_out(project, latest_statuses.get(project.id)) for project in projects]
 
 
 @router.get("/{project_id}", response_model=ProjectOut)
-def get_project(project: Project = Depends(get_project_for_current_user)):
-    return project
+def get_project(
+    project: Project = Depends(get_project_for_current_user),
+    db: Session = Depends(get_db),
+):
+    return _to_project_out(project, _latest_analysis_statuses(db, [project.id]).get(project.id))
 
 
 @router.post("/", response_model=ProjectOut)
@@ -101,7 +148,7 @@ def create_project(
     db.add(project)
     db.commit()
     db.refresh(project)
-    return project
+    return _to_project_out(project)
 
 
 @router.patch("/{project_id}", response_model=ProjectOut)
@@ -121,7 +168,7 @@ def update_project(
         project.description = body.description
     db.commit()
     db.refresh(project)
-    return project
+    return _to_project_out(project, _latest_analysis_statuses(db, [project.id]).get(project.id))
 
 
 @router.post("/{project_id}/access", response_model=ProjectAccessOut)

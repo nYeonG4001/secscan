@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Literal, Optional
 
 from pydantic import BaseModel, EmailStr, Field
 
@@ -20,6 +20,8 @@ class ProjectOut(BaseModel):
     description: Optional[str] = None
     source_type: Optional[str] = None
     target_languages: Optional[List[str]] = None
+    source_status: Literal["NEEDS_UPLOAD", "REGISTERED"]
+    latest_analysis_status: Optional[Literal["PENDING", "RUNNING", "COMPLETED", "FAILED"]] = None
     created_by: int
     created_at: datetime
     updated_at: datetime

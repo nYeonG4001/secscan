@@ -87,7 +87,7 @@
   }
 
   :focus-visible {
-    outline: 2px solid var(--secscan-cyan);
+    outline: 2px solid var(--secscan-violet);
     outline-offset: 2px;
   }
 
@@ -186,9 +186,9 @@ button.bg-black {
 }
 
 button.bg-black:hover:not(:disabled) {
-  border-color: var(--secscan-cyan);
-  background-color: var(--secscan-cyan);
-  color: var(--secscan-canvas);
+  border-color: var(--secscan-violet);
+  background-color: var(--secscan-violet);
+  color: var(--secscan-foreground);
 }
 
 button.bg-black.text-white {
@@ -219,9 +219,9 @@ button.bg-black.text-white {
 }
 
 .secscan-primary-button:hover:not(:disabled) {
-  border-color: var(--secscan-cyan);
-  background: var(--secscan-cyan);
-  color: var(--secscan-canvas);
+  border-color: var(--secscan-violet);
+  background: var(--secscan-violet);
+  color: var(--secscan-foreground);
 }
 
 .secscan-secondary-button {

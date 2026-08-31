@@ -44,7 +44,12 @@ def list_analyses(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    analyses = db.query(Analysis).filter(Analysis.project_id == project.id).all()
+    analyses = (
+        db.query(Analysis)
+        .filter(Analysis.project_id == project.id)
+        .order_by(Analysis.created_at.desc(), Analysis.id.desc())
+        .all()
+    )
     return [_to_analysis_out(analysis, current_user) for analysis in analyses]
 
 

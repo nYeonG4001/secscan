@@ -4,6 +4,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { api } from "../api/auth";
 import { createAnalysis } from "../api/analyses";
+import type { Analysis } from "../api/analyses";
 import { useAuth } from "../auth/useAuth";
 import { ActionDrawer } from "../components/ActionDrawer";
 import { FORBIDDEN_MESSAGE, SESSION_EXPIRED_MESSAGE } from "../auth/RouteGuards";
@@ -17,11 +18,6 @@ interface ProjectAccess {
   user_email: string;
 }
 
-interface Analysis {
-  id: number;
-  status: "PENDING" | "RUNNING" | "COMPLETED" | "FAILED";
-}
-
 interface ConflictBody {
   code?: string;
   analysis_id?: number;
@@ -33,15 +29,38 @@ function errorStatus(error: unknown) {
   return (error as AxiosError).response?.status;
 }
 
-function sourceStatusLabel(status: Project["source_status"]) {
-  return status === "REGISTERED" ? "등록됨" : "등록 필요";
-}
-
 function analysisStatusPresentation(status: Analysis["status"]) {
   if (status === "RUNNING") return { label: "분석 진행 중", className: "secscan-status-active" };
   if (status === "PENDING") return { label: "분석 대기", className: "secscan-status-neutral" };
   if (status === "COMPLETED") return { label: "분석 완료", className: "secscan-status-success" };
   return { label: "분석 실패", className: "secscan-status-failed" };
+}
+
+function formatAnalysisTime(value?: string | null) {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  const pad = (number: number) => String(number).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function ManageIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4">
+      <path d="M12 15.25A3.25 3.25 0 1 0 12 8.75a3.25 3.25 0 0 0 0 6.5Z" />
+      <path d="m19.2 13.5 1.1.85-1.8 3.12-1.32-.55a7.1 7.1 0 0 1-1.45.84L15.55 19h-3.6l-.18-1.24a7.1 7.1 0 0 1-1.45-.84L9 17.47l-1.8-3.12 1.1-.85a7.3 7.3 0 0 1 0-1.68l-1.1-.85L9 7.85l1.32.55a7.1 7.1 0 0 1 1.45-.84L11.95 6h3.6l.18 1.24a7.1 7.1 0 0 1 1.45.84l1.32-.55 1.8 3.12-1.1.85a7.3 7.3 0 0 1 0 1.68Z" />
+    </svg>
+  );
+}
+
+function SourceIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4">
+      <path d="M12 15V3" />
+      <path d="m8.5 6.5 3.5-3.5 3.5 3.5" />
+      <path d="M5 13.5v4.25A2.25 2.25 0 0 0 7.25 20h9.5A2.25 2.25 0 0 0 19 17.75V13.5" />
+    </svg>
+  );
 }
 
 export default function ProjectDetailPage() {
@@ -50,7 +69,8 @@ export default function ProjectDetailPage() {
   const navigate = useNavigate();
   const [project, setProject] = useState<Project | null>(null);
   const [accesses, setAccesses] = useState<ProjectAccess[]>([]);
-  const [showAccessPanel, setShowAccessPanel] = useState(false);
+  const [showManagePanel, setShowManagePanel] = useState(false);
+  const [showSourceActionPanel, setShowSourceActionPanel] = useState(false);
   const [showSourceUploadPanel, setShowSourceUploadPanel] = useState(false);
   const [hasActiveAnalysis, setHasActiveAnalysis] = useState(false);
   const [analyses, setAnalyses] = useState<Analysis[]>([]);
@@ -59,7 +79,6 @@ export default function ProjectDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [analysisStarting, setAnalysisStarting] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [showEditPanel, setShowEditPanel] = useState(false);
   const [editName, setEditName] = useState("");
   const [editDescription, setEditDescription] = useState("");
 
@@ -125,20 +144,27 @@ export default function ProjectDetailPage() {
     };
   }, [loadAnalysisStatus, loadProject]);
 
-  async function openAccessPanel() {
+  async function openManagePanel() {
     setAccessError(null);
-    setShowAccessPanel(true);
+    setEditName(project?.name ?? "");
+    setEditDescription(project?.description ?? "");
+    setShowManagePanel(true);
     await loadAccesses();
   }
 
-  function closeAccessPanel() {
-    setShowAccessPanel(false);
+  function closeManagePanel() {
+    setShowManagePanel(false);
     setEmail("");
     setAccessError(null);
   }
 
   function closeSourceUploadPanel() {
     setShowSourceUploadPanel(false);
+  }
+
+  function openSourceAction() {
+    if (sourceRegistered) setShowSourceActionPanel(true);
+    else setShowSourceUploadPanel(true);
   }
 
   async function refreshProjectAfterUpload() {
@@ -207,7 +233,7 @@ export default function ProjectDetailPage() {
     try {
       const updated = await updateProject(project.id, { name: editName, description: editDescription || null });
       setProject(updated);
-      setShowEditPanel(false);
+      setShowManagePanel(false);
     } catch (requestError) { handleRequestError(requestError); }
   }
 
@@ -215,8 +241,6 @@ export default function ProjectDetailPage() {
   if (error && !project) return <section role="alert" className="secscan-error-state">{error}</section>;
   if (!project) return <section role="alert" className="secscan-error-state">{NOT_FOUND_MESSAGE}</section>;
 
-  const currentAnalysis = analyses.find((analysis) => analysis.status === "RUNNING" || analysis.status === "PENDING") ?? analyses[0];
-  const currentStatus = currentAnalysis ? analysisStatusPresentation(currentAnalysis.status) : null;
   const sourceRegistered = project.source_status === "REGISTERED";
 
   return (
@@ -235,81 +259,75 @@ export default function ProjectDetailPage() {
           </div>
         </div>
         {user?.role === "ADMIN" && (
-          <div className="flex min-w-0 flex-col items-stretch gap-3 xl:items-end">
-            <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:justify-end">
-              <div className="min-w-0">
-                <button
-                  type="button"
-                  onClick={() => setShowSourceUploadPanel(true)}
-                  disabled={hasActiveAnalysis}
-                  className={`${sourceRegistered ? "secscan-secondary-button" : "secscan-primary-button"} w-full disabled:cursor-not-allowed disabled:opacity-50`}
-                >
-                  {sourceRegistered ? "소스 교체" : "소스 등록"}
-                </button>
-                {hasActiveAnalysis && <p className="mt-2 max-w-xs break-words text-xs text-red-300">분석이 끝난 뒤 업로드할 수 있습니다.</p>}
-                {!sourceRegistered && !hasActiveAnalysis && <p className="mt-2 max-w-xs break-words text-xs text-secscan-muted">소스를 등록한 뒤 분석할 수 있습니다.</p>}
-              </div>
-              {sourceRegistered && !hasActiveAnalysis && (
-                <button
-                  type="button"
-                  onClick={() => void startAnalysis()}
-                  disabled={analysisStarting}
-                  className="secscan-primary-button disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {analysisStarting ? "분석 요청 중..." : "분석 실행"}
-                </button>
-              )}
-            </div>
-            <div className="flex flex-wrap items-center gap-2 border-t border-secscan-border pt-3 text-sm xl:justify-end">
-              <span className="mr-1 text-xs font-semibold text-secscan-muted">관리</span>
-              <button type="button" onClick={() => { setEditName(project.name); setEditDescription(project.description ?? ""); setShowEditPanel(true); }} className="secscan-secondary-button px-3 py-1.5">프로젝트 수정</button>
-              <button type="button" onClick={openAccessPanel} className="secscan-secondary-button px-3 py-1.5">접근권한 관리</button>
+          <div className="flex min-w-0 flex-col items-stretch xl:items-end">
+            <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={openManagePanel}
+                className="secscan-secondary-button w-full sm:w-auto"
+              >
+                <span className="inline-flex items-center gap-2"><ManageIcon />관리</span>
+              </button>
+              <button
+                type="button"
+                onClick={openSourceAction}
+                disabled={hasActiveAnalysis || analysisStarting}
+                className="secscan-primary-button w-full disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+              >
+                <span className="inline-flex items-center gap-2"><SourceIcon />{analysisStarting ? "요청 중..." : "소스"}</span>
+              </button>
             </div>
           </div>
         )}
       </div>
-      <div className="secscan-panel mt-7 flex min-w-0 flex-col gap-5 p-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-        <div className="min-w-0">
-          <p className="text-sm font-semibold">소스 등록 상태</p>
-          <p className="mt-2 text-sm text-secscan-muted">소스 등록 후 분석을 실행할 수 있습니다.</p>
-        </div>
-        <div className="min-w-0 shrink-0">
-          <span className={`secscan-status-badge ${project.source_status === "REGISTERED" ? "secscan-status-success" : "secscan-status-neutral"}`}>
-            {sourceStatusLabel(project.source_status)}
-          </span>
-        </div>
-      </div>
       {analyses.length === 0 ? (
-        <div className="secscan-empty-state mt-5 text-sm">아직 분석 이력이 없습니다.</div>
+        <div className="secscan-empty-state mt-7 text-sm">아직 분석 이력이 없습니다.</div>
       ) : (
-        <>
-          <div className="secscan-panel mt-5 flex min-w-0 flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-            <div className="min-w-0">
-              <p className="text-sm font-semibold">{hasActiveAnalysis ? "진행 중인 분석" : "최근 분석 상태"}</p>
-              {hasActiveAnalysis && <p className="mt-2 text-sm text-secscan-muted">분석이 끝나면 결과를 확인할 수 있습니다.</p>}
-            </div>
-            <div className="flex min-w-0 flex-wrap items-center gap-3">
-              {currentStatus && <span className={`secscan-status-badge ${currentStatus.className}`}>{currentStatus.label}</span>}
-              {currentAnalysis && <Link to={`/projects/${project.id}/analyses/${currentAnalysis.id}`} className="secscan-secondary-button shrink-0 px-3 py-1.5 text-xs">{hasActiveAnalysis ? "분석 상태 보기" : "최근 분석 보기"}</Link>}
-            </div>
+        <div className="mt-8">
+          <h2 className="text-xl font-bold">분석 이력</h2>
+          <div className="secscan-panel mt-4 overflow-x-auto">
+              <table className="min-w-[780px] w-full border-collapse text-left text-sm" aria-label="분석 이력">
+                <thead className="border-b border-secscan-border bg-secscan-surface-2 text-xs font-semibold text-secscan-muted">
+                  <tr>
+                    <th scope="col" className="px-5 py-3">분석 요청 시각</th>
+                    <th scope="col" className="px-5 py-3">상태</th>
+                    <th scope="col" className="px-5 py-3">시작 시각</th>
+                    <th scope="col" className="px-5 py-3">완료 시각</th>
+                    <th scope="col" className="px-5 py-3">결과</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-secscan-border">
+                  {analyses.map((analysis) => {
+                    const presentation = analysisStatusPresentation(analysis.status);
+                    return (
+                      <tr
+                        key={analysis.id}
+                        tabIndex={0}
+                        onClick={() => navigate(`/projects/${project.id}/analyses/${analysis.id}`)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            navigate(`/projects/${project.id}/analyses/${analysis.id}`);
+                          }
+                        }}
+                        className="cursor-pointer transition-colors hover:bg-secscan-surface-2 focus-visible:bg-secscan-surface-2"
+                      >
+                        <td className="whitespace-nowrap px-5 py-4 text-secscan-foreground">{formatAnalysisTime(analysis.created_at)}</td>
+                        <td className="px-5 py-4"><span className={`secscan-status-badge ${presentation.className}`}>{presentation.label}</span></td>
+                        <td className="whitespace-nowrap px-5 py-4 text-secscan-muted">{formatAnalysisTime(analysis.started_at)}</td>
+                        <td className="whitespace-nowrap px-5 py-4 text-secscan-muted">{formatAnalysisTime(analysis.completed_at)}</td>
+                        <td className="px-5 py-4">
+                          {analysis.status === "COMPLETED"
+                            ? <Link to={`/projects/${project.id}/analyses/${analysis.id}`} className="secscan-secondary-button px-3 py-1.5 text-xs">결과 보기</Link>
+                            : <span className="text-secscan-muted">—</span>}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
           </div>
-          <div className="mt-8">
-            <h2 className="text-xl font-bold">분석 이력</h2>
-          <ul className="secscan-panel mt-4 overflow-hidden divide-y divide-secscan-border">
-            {analyses.map((analysis) => {
-              const presentation = analysisStatusPresentation(analysis.status);
-              return (
-                <li key={analysis.id} className="min-w-0">
-                  <Link to={`/projects/${project.id}/analyses/${analysis.id}`} className="secscan-panel-interactive flex min-w-0 flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between focus-visible:relative">
-                    <span className="min-w-0 break-words text-sm font-medium">분석 #{analysis.id} · {analysis.status}</span>
-                    <span className={`secscan-status-badge shrink-0 ${presentation.className}`}>{presentation.label}</span>
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-          </div>
-        </>
+        </div>
       )}
       {error && <p role="alert" className="secscan-error-state mt-5 text-sm">{error}</p>}
       {showSourceUploadPanel && user?.role === "ADMIN" && (
@@ -320,19 +338,37 @@ export default function ProjectDetailPage() {
           onRequestError={handleRequestError}
         />
       )}
-      {showEditPanel && user?.role === "ADMIN" && <ActionDrawer title="프로젝트 수정" onClose={() => setShowEditPanel(false)} footer={<button type="submit" form="edit-project" className="secscan-primary-button w-full">저장</button>}><form id="edit-project" onSubmit={updateProjectDetails} className="space-y-4"><label className="block text-sm font-medium">프로젝트 이름<input required value={editName} onChange={(event) => setEditName(event.target.value)} className="mt-2" /></label><label className="block text-sm font-medium">설명<textarea value={editDescription} onChange={(event) => setEditDescription(event.target.value)} className="mt-2" /></label></form></ActionDrawer>}
-      {showAccessPanel && user?.role === "ADMIN" && (
+      {showSourceActionPanel && user?.role === "ADMIN" && (
         <ActionDrawer
-          title="접근권한 관리"
-          onClose={closeAccessPanel}
-          footer={<button type="submit" form="grant-access-form" className="secscan-primary-button w-full">접근권한 부여</button>}
+          title="소스 및 분석"
+          onClose={() => setShowSourceActionPanel(false)}
+        >
+          <p className="text-sm text-secscan-muted">현재 소스를 교체하거나 등록된 소스로 분석을 실행할 수 있습니다.</p>
+          <div className="mt-6 grid gap-3">
+            <button type="button" onClick={() => { setShowSourceActionPanel(false); setShowSourceUploadPanel(true); }} className="secscan-secondary-button w-full">소스 교체</button>
+            <button type="button" onClick={() => { setShowSourceActionPanel(false); void startAnalysis(); }} className="secscan-primary-button w-full">분석 실행</button>
+          </div>
+        </ActionDrawer>
+      )}
+      {showManagePanel && user?.role === "ADMIN" && (
+        <ActionDrawer
+          title="프로젝트 관리"
+          onClose={closeManagePanel}
+          footer={<button type="submit" form="edit-project" className="secscan-primary-button w-full">프로젝트 정보 저장</button>}
         >
           {accessError && <p role="alert" className="secscan-error-state mb-4 text-sm">{accessError}</p>}
-          <form id="grant-access-form" onSubmit={grantAccess}>
-            <label htmlFor="access-email" className="text-sm font-medium">사용자 이메일</label>
-            <input id="access-email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} required className="mt-2 w-full rounded border px-3 py-2" />
+          <form id="edit-project" onSubmit={updateProjectDetails} className="space-y-4">
+            <label className="block text-sm font-medium">프로젝트 이름<input required value={editName} onChange={(event) => setEditName(event.target.value)} className="mt-2" /></label>
+            <label className="block text-sm font-medium">설명<textarea value={editDescription} onChange={(event) => setEditDescription(event.target.value)} className="mt-2" /></label>
           </form>
-          <ul className="mt-6 space-y-2">
+          <section className="mt-8">
+            <h3 className="text-sm font-semibold">사용자 접근권한</h3>
+            <form id="grant-access-form" onSubmit={grantAccess} className="mt-3 flex gap-2">
+              <input id="access-email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="사용자 이메일" required />
+              <button type="submit" className="secscan-secondary-button shrink-0">추가</button>
+            </form>
+          </section>
+          <ul className="mt-5 space-y-2">
             {accesses.map((access) => (
               <li key={access.id} className="flex min-w-0 items-center justify-between gap-3 border-b border-secscan-border pb-3 text-sm">
                 <span className="min-w-0 break-all">{access.user_email}</span>
