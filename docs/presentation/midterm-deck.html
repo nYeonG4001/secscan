@@ -1,0 +1,1104 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>요구사항 해석과 MVP 구현 현황</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800;900&amp;display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0a0a0a;
+    --panel:#111413;
+    --accent-panel:#0f2d29;
+    --accent-panel-line:#1d4a43;
+    --ink:#f4f6f5;
+    --muted:#8f9895;
+    --muted-dim:#5e6663;
+    --accent:#2dd4bf;
+    --line:#222725;
+    --font: "Noto Sans KR", "Apple SD Gothic Neo", sans-serif;
+  }
+
+  *{ box-sizing:border-box; }
+  html{ font-size:18px; }
+  html,body{ margin:0; padding:0; }
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:var(--font);
+    font-variant-numeric:tabular-nums;
+    scroll-snap-type:y proximity;
+    overflow-x:hidden;
+  }
+
+  .deck{ display:flex; flex-direction:column; }
+
+  .slide{
+    position:relative;
+    min-height:100vh;
+    scroll-snap-align:start;
+    padding:5.5vw 6.5vw;
+    display:flex;
+    flex-direction:column;
+    border-bottom:1px solid var(--line);
+  }
+  .slide:last-child{ border-bottom:none; }
+
+  .slide-title{
+    font-size:clamp(2rem, 3.8vw, 3.2rem);
+    font-weight:800;
+    line-height:1.25;
+    margin:0.65em 0 0;
+    text-wrap:balance;
+    letter-spacing:-0.01em;
+  }
+
+  .slide-head{
+    display:flex;
+    align-items:center;
+    gap:1rem;
+    margin-bottom:clamp(2rem, 5vw, 3.5rem);
+  }
+  .slide-head .slide-title{ margin:0; }
+  .page-index{
+    color:var(--accent);
+    font-size:clamp(2.8rem, 5vw, 4.3rem);
+    font-weight:900;
+    letter-spacing:-0.07em;
+    line-height:0.85;
+  }
+
+  .slide-number{
+    position:absolute;
+    right:6.5vw;
+    bottom:3vw;
+    font-size:0.75rem;
+    color:var(--muted-dim);
+    letter-spacing:0.08em;
+  }
+
+  /* ---------- Slide 1: Cover ---------- */
+  #cover{
+    justify-content:space-between;
+    background:
+      radial-gradient(circle at 84% 76%, rgba(45, 212, 191, 0.17), transparent 31%),
+      radial-gradient(circle at 96% 100%, rgba(15, 45, 41, 0.9), transparent 48%),
+      var(--bg);
+  }
+  .cover-top{ display:flex; flex-direction:column; gap:0.4em; }
+  .cover-top .kicker{
+    font-size:1.55rem; font-weight:800; letter-spacing:0.08em; color:var(--ink);
+  }
+  .cover-top .date{ font-size:1.55rem; color:var(--muted); }
+
+  .cover-bottom{
+    display:flex; flex-direction:column; align-items:flex-end; gap:1.1em;
+    margin-left:auto; text-align:right; max-width:min(90%, 780px);
+  }
+  .cover-title{
+    font-size:clamp(2.8rem, 6.5vw, 4.6rem);
+    font-weight:900;
+    line-height:1.28;
+    letter-spacing:-0.01em;
+    text-wrap:balance;
+  }
+  .presenter{
+    color:var(--accent);
+    font-weight:800;
+    font-size:1.9rem;
+  }
+  .cover-logo{
+    align-self:center;
+    margin-top:1.6rem;
+    height:52px;
+    max-width:200px;
+    object-fit:contain;
+  }
+
+  /* ---------- Slide 2: Analysis ---------- */
+  .analysis-content{
+    display:flex;
+    flex:1;
+    flex-direction:column;
+    gap:clamp(1.1rem, 2.5vw, 1.7rem);
+  }
+  .interp-grid{
+    display:grid;
+    grid-template-columns:repeat(3, minmax(0, 1fr));
+    gap:clamp(1rem, 2vw, 1.5rem);
+    flex:1;
+    align-content:center;
+  }
+  .interp-card{
+    display:flex;
+    flex-direction:column;
+    gap:0.85em;
+    min-width:0;
+    padding:clamp(1.2rem, 2.5vw, 1.8rem);
+    border:1px solid var(--line);
+    background:var(--panel);
+  }
+  .interp-label{
+    color:var(--ink);
+    font-weight:800;
+    font-size:clamp(1.15rem, 2vw, 1.45rem);
+    line-height:1.3;
+  }
+  .interp-heading{
+    display:flex;
+    align-items:center;
+    gap:0.75rem;
+  }
+  .interp-icon{
+    display:grid;
+    flex:none;
+    width:2.3rem;
+    height:2.3rem;
+    place-items:center;
+    color:var(--accent);
+    background:var(--accent-panel);
+    border:1px solid var(--accent-panel-line);
+  }
+  .interp-icon svg{
+    width:1.22rem;
+    height:1.22rem;
+    fill:none;
+    stroke:currentColor;
+    stroke-linecap:round;
+    stroke-linejoin:round;
+    stroke-width:1.8;
+  }
+  .interp-description{
+    margin:0;
+    color:var(--muted);
+    font-size:1rem;
+    font-weight:500;
+    line-height:1.6;
+  }
+  .interp-origin,
+  .interp-decision{
+    margin:0;
+    font-size:0.88rem;
+    font-weight:600;
+    line-height:1.55;
+  }
+  .interp-origin{
+    padding-bottom:0.65rem;
+    color:var(--muted);
+  }
+  .interp-decision{ color:var(--ink); font-size:0.98rem; font-weight:800; }
+  .interp-line-label{
+    display:block;
+    margin-bottom:0.28rem;
+    color:var(--accent);
+    font-size:0.68rem;
+    font-weight:800;
+    letter-spacing:0.1em;
+  }
+  .interp-reference{
+    margin-top:auto;
+    color:var(--muted-dim);
+    font-size:0.75rem;
+    font-weight:700;
+    letter-spacing:0.02em;
+  }
+  .interp-adr{
+    display:block;
+    margin-top:0.35rem;
+    color:var(--accent);
+    font-size:0.7rem;
+    line-height:1.45;
+  }
+  .adr-footnote{
+    margin:0;
+    color:var(--muted-dim);
+    font-size:0.75rem;
+    font-weight:700;
+    line-height:1.45;
+  }
+  .non-goals{
+    display:flex;
+    align-items:center;
+    gap:clamp(1rem, 2vw, 1.8rem);
+    border-top:1px solid var(--line);
+    padding-top:1rem;
+  }
+  .non-goals-title{
+    flex:none;
+    color:var(--muted);
+    font-size:0.82rem;
+    font-weight:800;
+    letter-spacing:0.08em;
+  }
+  .non-goals-list{
+    display:flex;
+    flex:1;
+    flex-wrap:wrap;
+    gap:0.5rem clamp(1rem, 2vw, 1.8rem);
+    margin:0;
+    padding:0;
+    list-style:none;
+  }
+  .non-goals-list li{
+    display:flex;
+    align-items:center;
+    gap:0.35rem;
+    color:var(--muted-dim);
+    font-size:0.85rem;
+    font-weight:700;
+  }
+  .non-goals-list .symbol{
+    color:var(--muted-dim);
+    font-size:1.05rem;
+    font-weight:800;
+  }
+
+  /* ---------- Slide 3: Scope ---------- */
+  .scope-content{
+    display:grid;
+    flex:1;
+    width:min(100%, 68rem);
+    grid-template-columns:minmax(0, 1.15fr) minmax(18rem, 0.95fr);
+    gap:clamp(1.5rem, 3vw, 3rem);
+    align-content:center;
+    margin-inline:auto;
+  }
+  .scope-column{
+    min-width:0;
+  }
+  .scope-column.later{
+    padding-left:clamp(1.5rem, 4vw, 3.5rem);
+  }
+  .scope-heading{
+    display:flex;
+    align-items:center;
+    gap:0.6rem;
+    margin:0 0 clamp(1.1rem, 2vw, 1.6rem);
+    color:var(--ink);
+    font-size:clamp(1.3rem, 2.3vw, 1.65rem);
+    font-weight:800;
+    letter-spacing:-0.02em;
+  }
+  .scope-heading .symbol{
+    color:var(--accent);
+    font-size:1.45em;
+    line-height:1;
+  }
+  .scope-column.later .scope-heading{ color:var(--muted); }
+  .scope-list{
+    display:flex;
+    flex-direction:column;
+    margin:0;
+    padding:0;
+    list-style:none;
+  }
+  .scope-item{
+    display:grid;
+    grid-template-columns:1.35rem minmax(0, 1fr);
+    gap:0.65rem;
+    padding:1rem 0;
+  }
+  .scope-item .symbol{
+    color:var(--accent);
+    font-size:1.4rem;
+    font-weight:800;
+    line-height:1.25;
+    text-align:center;
+  }
+  .scope-column.later .scope-item .symbol{ color:var(--muted-dim); }
+  .scope-item strong{
+    display:block;
+    color:var(--ink);
+    font-size:1.16rem;
+    font-weight:800;
+    line-height:1.35;
+  }
+  .scope-item span:last-child{
+    display:block;
+    margin-top:0.22rem;
+    color:var(--muted);
+    font-size:0.98rem;
+    line-height:1.45;
+  }
+  .scope-reference{
+    display:block;
+    margin-top:0.38rem;
+    color:var(--muted-dim);
+    font-size:0.72rem;
+    font-style:normal;
+    font-weight:800;
+    letter-spacing:0.02em;
+    line-height:1.45;
+  }
+
+  /* ---------- Slide 4: Current design ---------- */
+  .design-content{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+  }
+  .design-label{
+    display:block;
+    margin-bottom:0.7rem;
+    color:var(--accent);
+    font-size:0.78rem;
+    font-weight:800;
+    letter-spacing:0.1em;
+  }
+  .design-hero h3{
+    margin:0;
+    color:var(--ink);
+    font-size:clamp(2rem, 4.4vw, 3.6rem);
+    font-weight:900;
+    letter-spacing:-0.055em;
+    line-height:1.15;
+  }
+  .design-decisions{
+    display:grid;
+    width:min(100%, 72rem);
+    grid-template-columns:repeat(2, minmax(0, 1fr));
+    gap:clamp(1.5rem, 3vw, 3rem);
+    margin:clamp(1.6rem, 4vw, 3rem) auto 0;
+  }
+  .single-decision{
+    display:grid;
+    grid-template-columns:minmax(17rem, 0.78fr) minmax(0, 1.22fr);
+    align-items:center;
+    gap:clamp(2rem, 6vw, 5rem);
+    width:min(100%, 72rem);
+    margin:0 auto;
+  }
+  .single-decision .decision-block{
+    padding:0;
+  }
+  .single-decision .decision-block h4{
+    font-size:clamp(1.7rem, 3vw, 2.45rem);
+  }
+  .single-decision .decision-copy{
+    font-size:1.05rem;
+  }
+  .decision-media-slot{
+    min-height:clamp(18rem, 34vw, 28rem);
+    border:1px solid var(--accent-panel-line);
+    background:linear-gradient(135deg, rgba(15, 45, 41, 0.52), rgba(17, 20, 19, 0.2));
+  }
+  .decision-media-slot.decision-media{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:transparent;
+    border:0;
+    margin:0;
+  }
+  .decision-media img{
+    display:block;
+    max-width:100%;
+    max-height:60vh;
+    object-fit:contain;
+    border-radius:0.65rem;
+  }
+  .decision-block{
+    min-width:0;
+    padding-top:0;
+  }
+  .decision-adr{
+    display:block;
+    color:var(--accent);
+    font-size:0.76rem;
+    font-weight:800;
+    letter-spacing:0.04em;
+    line-height:1.45;
+  }
+  .decision-block h4{
+    margin:0.9rem 0 0;
+    color:var(--ink);
+    font-size:clamp(1.3rem, 2.2vw, 1.8rem);
+    font-weight:800;
+    letter-spacing:-0.04em;
+    line-height:1.28;
+  }
+  .decision-copy{
+    margin:0.85rem 0 0;
+    color:var(--muted);
+    font-size:0.95rem;
+    font-weight:600;
+    line-height:1.55;
+  }
+  .mini-flow{
+    display:flex;
+    align-items:center;
+    gap:0.55rem;
+    margin-top:1.45rem;
+    color:var(--muted);
+    font-size:0.88rem;
+    font-weight:800;
+    line-height:1.4;
+  }
+  .mini-flow strong{ color:var(--ink); }
+  .mini-flow .flow-arrow{ color:var(--accent); font-size:1rem; }
+  .analysis-strip{
+    display:grid;
+    grid-template-columns:minmax(8rem, 0.45fr) minmax(0, 1.55fr);
+    gap:1.5rem;
+    align-items:center;
+    margin-top:clamp(3rem, 6vw, 4.5rem);
+    padding-top:1.5rem;
+  }
+  .analysis-strip-label{
+    display:block;
+    color:var(--muted-dim);
+    font-size:0.76rem;
+    font-weight:800;
+    letter-spacing:0.08em;
+  }
+  .inline-steps{
+    display:flex;
+    font-weight:800;
+    gap:0.65rem;
+    flex-wrap:wrap;
+  }
+  .inline-step{ color:var(--ink); font-size:0.92rem; }
+  .inline-arrow{ color:var(--accent); font-size:1rem; }
+  .inline-step:last-child{ color:var(--accent); }
+
+  /* ---------- Slide 4: ADR ---------- */
+  .adr-showcase-content{
+    display:flex;
+    flex:1;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:clamp(1.35rem, 3vw, 2.2rem);
+    min-height:0;
+  }
+  .adr-intro-panel{
+    text-align:center;
+  }
+  .adr-acronym{
+    margin:0;
+    color:var(--accent);
+    font-size:0.78rem;
+    font-weight:900;
+    letter-spacing:0.08em;
+  }
+  .adr-intro-panel h3{
+    margin:0.55rem 0 0;
+    color:var(--ink);
+    font-size:clamp(1.65rem, 2.8vw, 2.3rem);
+    font-weight:900;
+    letter-spacing:-0.05em;
+    line-height:1.22;
+  }
+  .adr-showcase-copy{
+    margin:0.4rem 0 0;
+    color:var(--muted);
+    font-size:1rem;
+    font-weight:700;
+    line-height:1.55;
+  }
+  .adr-showcase-frame{
+    display:flex;
+    flex:1;
+    align-items:center;
+    justify-content:center;
+    width:min(100%, 72rem);
+    min-height:0;
+    margin:0;
+  }
+  .adr-showcase-frame img{
+    display:block;
+    max-width:100%;
+    max-height:53vh;
+    border:1px solid var(--line);
+    border-radius:0.65rem;
+    object-fit:contain;
+  }
+  /* ---------- Slide 5: Implementation status ---------- */
+  .implementation-summary{
+    display:grid;
+    flex:1;
+    grid-template-columns:minmax(0, 1.35fr) minmax(13rem, 0.65fr);
+    gap:clamp(1.5rem, 3vw, 2.5rem);
+    align-content:center;
+  }
+  .implementation-kicker{
+    margin:0 0 0.45rem;
+    color:var(--accent);
+    font-size:0.82rem;
+    font-weight:800;
+    letter-spacing:0.1em;
+  }
+  .implementation-title{
+    margin:0;
+    color:var(--ink);
+    font-size:clamp(1.7rem, 3vw, 2.45rem);
+    font-weight:900;
+    letter-spacing:-0.04em;
+    line-height:1.25;
+  }
+  .implementation-status{
+    margin:0.8rem 0 0;
+    color:var(--muted);
+    font-size:1rem;
+    font-weight:700;
+    line-height:1.55;
+  }
+  .implementation-list-label{
+    display:block;
+    margin-top:0;
+    color:var(--accent);
+    font-size:0.78rem;
+    font-weight:800;
+    letter-spacing:0.08em;
+  }
+  .implementation-list{
+    display:flex;
+    flex-direction:column;
+    margin:clamp(1.5rem, 3vw, 2.2rem) 0 0;
+    padding:0;
+    list-style:none;
+  }
+  .implementation-item{
+    display:grid;
+    grid-template-columns:1.35rem minmax(0, 1fr);
+    gap:0.65rem;
+    padding:0.75rem 0;
+    color:var(--muted);
+    font-size:0.98rem;
+    font-weight:600;
+    line-height:1.45;
+  }
+  .implementation-marker{ color:var(--accent); font-weight:900; }
+  .implementation-next{
+    margin:1.25rem 0 0;
+    color:var(--muted-dim);
+    font-size:0.86rem;
+    font-weight:700;
+    line-height:1.5;
+  }
+  .implementation-detail{
+    display:grid;
+    grid-template-columns:repeat(2, minmax(0, 1fr));
+    column-gap:clamp(1.5rem, 4vw, 3.5rem);
+    align-content:center;
+  }
+  .implementation-detail-item{
+    padding:1rem 0;
+  }
+  .implementation-detail-item strong{
+    display:block;
+    color:var(--ink);
+    font-size:1rem;
+    font-weight:800;
+    line-height:1.4;
+  }
+  .implementation-detail-item span{
+    display:block;
+    margin-top:0.25rem;
+    color:var(--muted);
+    font-size:0.88rem;
+    font-weight:600;
+    line-height:1.5;
+  }
+  .epic-overview{
+    display:flex;
+    flex:1;
+    flex-direction:column;
+    justify-content:center;
+    width:min(100%, 74rem);
+    margin:0 auto;
+  }
+  .epic-overview-status{
+    margin:0 0 clamp(2rem, 4vw, 3.5rem);
+    color:var(--muted);
+    font-size:clamp(1.1rem, 2vw, 1.45rem);
+    font-weight:700;
+    line-height:1.4;
+  }
+  .epic-overview-status strong{ color:var(--accent); font-weight:900; }
+  .epic-overview-status span{ padding:0 0.35rem; color:var(--muted-dim); }
+  .epic-grid{
+    display:grid;
+    grid-template-columns:repeat(7, minmax(0, 1fr));
+    gap:0.75rem;
+  }
+  .epic-card{
+    min-width:0;
+    min-height:10.5rem;
+    padding:1.15rem 1rem;
+    background:var(--panel);
+    border:1px solid var(--line);
+  }
+  .epic-card strong{
+    display:block;
+    color:var(--accent);
+    font-size:1.45rem;
+    font-weight:900;
+    line-height:1;
+  }
+  .epic-card span{
+    display:block;
+    margin-top:0.85rem;
+    color:var(--ink);
+    font-size:0.92rem;
+    font-weight:800;
+    line-height:1.4;
+    word-break:keep-all;
+  }
+  .epic-card small{
+    display:block;
+    margin-top:1.1rem;
+    color:var(--accent);
+    font-size:0.72rem;
+    font-weight:900;
+    letter-spacing:0.06em;
+  }
+  .epic-card.pending{ background:rgba(255,255,255,0.025); }
+  .epic-card.pending strong,
+  .epic-card.pending small{ color:var(--muted-dim); }
+  .epic-card.pending span{ color:var(--muted); }
+  .screens{ display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:1rem; }
+  .screen-slot{
+    display:flex;
+    flex-direction:column;
+    justify-content:flex-end;
+    min-height:clamp(15rem, 34vw, 22rem);
+    padding:1.2rem;
+    border:1px dashed var(--accent-panel-line);
+    background:linear-gradient(135deg, rgba(15, 45, 41, 0.34), rgba(17, 20, 19, 0.1));
+  }
+  .screen-slot span{
+    color:var(--accent);
+    font-size:0.76rem;
+    font-weight:800;
+    letter-spacing:0.08em;
+  }
+  .screen-slot strong{
+    display:block;
+    margin-top:0.45rem;
+    color:var(--ink);
+    font-size:1rem;
+    line-height:1.45;
+    white-space:nowrap;
+  }
+  .screen-slot em{
+    display:block;
+    margin-top:0.35rem;
+    color:var(--muted);
+    font-size:0.82rem;
+    font-style:normal;
+    line-height:1.5;
+  }
+
+  /* ---------- Screen showcase slides ---------- */
+  .showcase-content{
+    display:grid;
+    flex:1;
+    grid-template-columns:minmax(0, 1.45fr) minmax(14rem, 0.55fr);
+    gap:clamp(2rem, 5vw, 4rem);
+    align-items:center;
+  }
+  .showcase-frame{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    min-height:0;
+    margin:0;
+  }
+  .showcase-frame img{
+    display:block;
+    width:100%;
+    max-height:64vh;
+    object-fit:contain;
+    border:1px solid var(--line);
+    border-radius:0.6rem;
+  }
+  .showcase-slide{
+    background:#ffffff;
+    color:#111111;
+  }
+  .showcase-slide .slide-head{
+    position:relative;
+    z-index:1;
+    flex:0 0 auto;
+    margin-bottom:clamp(1.5rem, 3vw, 2.5rem);
+  }
+  .showcase-slide .slide-title{
+    color:#111111;
+  }
+  .showcase-slide .slide-number{
+    display:none;
+  }
+  .showcase-slide .showcase-content{
+    display:flex;
+    min-height:0;
+    overflow:hidden;
+  }
+  .showcase-slide .showcase-frame{
+    flex:1;
+    min-height:0;
+    overflow:hidden;
+  }
+  .showcase-slide .showcase-frame img{
+    width:auto;
+    max-width:100%;
+    max-height:calc(100vh - 16rem);
+    border-color:#d8d8d8;
+    border-radius:0.4rem;
+  }
+  .showcase-note{
+    padding-top:1.1rem;
+  }
+  .showcase-note span{
+    color:var(--accent);
+    font-size:0.76rem;
+    font-weight:800;
+    letter-spacing:0.08em;
+  }
+  .showcase-note p{
+    margin:0.7rem 0 0;
+    color:var(--ink);
+    font-size:1.08rem;
+    font-weight:800;
+    line-height:1.5;
+  }
+  .showcase-note small{
+    display:block;
+    margin-top:0.65rem;
+    color:var(--muted);
+    font-size:0.88rem;
+    font-weight:600;
+    line-height:1.55;
+  }
+
+  @media print{
+    @page{ size:16in 9in; margin:0; }
+    html{ scroll-snap-type:none; }
+    body{ width:16in; margin:0; }
+    .slide{
+      width:16in;
+      height:9in;
+      min-height:9in;
+      box-sizing:border-box;
+      padding:0.55in 0.8in;
+      overflow:hidden;
+      break-after:page;
+      page-break-after:always;
+    }
+    .showcase-slide .slide-head{ flex:0 0 auto; margin-bottom:0.25in; }
+    .showcase-slide .showcase-content{ flex:1; min-height:0; }
+    .showcase-slide .showcase-frame{ flex:1; min-height:0; }
+    .showcase-slide .showcase-frame img{ max-width:100%; max-height:6.4in; }
+    .adr-showcase-frame img{ max-height:5in; }
+    .decision-media img{ max-height:5.2in; }
+  }
+
+  /* ---------- Slide 6: Plan ---------- */
+  .timeline{ flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+  .timeline-track{ display:none; }
+  .tl-dot{
+    position:absolute; top:50%; width:14px; height:14px; border-radius:50%;
+    transform:translate(-50%,-50%); background:var(--ink); border:2px solid var(--bg);
+  }
+  .tl-dot.on{ background:var(--accent); }
+
+  .tl-items{ display:flex; width:min(100%, 52rem); flex-direction:column; gap:clamp(1rem, 2vw, 1.5rem); }
+  .tl-item{ display:grid; grid-template-columns:6rem minmax(0, 1fr); align-items:start; gap:clamp(1rem, 3vw, 2.5rem); }
+  .tl-work{ display:flex; flex-direction:column; gap:0.35rem; }
+  .tl-item .tl-date{ font-size:1rem; font-weight:800; color:var(--muted-dim); letter-spacing:0.04em; }
+  .tl-item.on .tl-date{ color:var(--accent); }
+  .tl-item .tl-task{ font-size:1.18rem; font-weight:800; color:var(--ink); line-height:1.4; white-space:nowrap; }
+  .tl-item .tl-done{ font-size:0.95rem; color:var(--muted); line-height:1.55; }
+
+  @media screen and (max-width: 860px){
+    html{ font-size:16px; }
+    .interp-grid, .scope-content, .design-decisions, .single-decision, .implementation-summary, .implementation-detail, .screens, .showcase-content{
+      grid-template-columns:1fr;
+    }
+    .epic-grid{ grid-template-columns:repeat(2, minmax(0, 1fr)); }
+    .non-goals{ align-items:flex-start; flex-direction:column; gap:0.6rem; }
+    .scope-column.later{
+      border-left:none;
+      padding:1.5rem 0 0;
+    }
+    .screen-slot strong, .tl-item .tl-task{ white-space:normal; }
+    .analysis-strip{ grid-template-columns:1fr; gap:0.7rem; }
+    .tl-item{ grid-template-columns:1fr; gap:0.35rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="deck">
+
+  <!-- Slide 1: 표지 -->
+  <section class="slide" id="cover">
+    <div class="cover-top">
+      <div class="kicker">MIDTERM REVIEW</div>
+      <div class="date">2026.08.31</div>
+    </div>
+    <div class="cover-bottom">
+      <div class="cover-title">요구사항 해석과<br>MVP 구현 현황</div>
+      <div class="presenter">박하영</div>
+    </div>
+    <img class="cover-logo" src="https://boblink.cmcom.kr/assets/images/boblink-bi.png" alt="BoB Link 로고">
+  </section>
+
+  <!-- Slide 2: 요구사항 해석 -->
+  <section class="slide" id="analysis">
+    <div class="slide-head">
+      <span class="page-index">01</span>
+      <h2 class="slide-title">요구사항 해석</h2>
+    </div>
+    <div class="analysis-content">
+      <div class="interp-grid">
+
+      <article class="interp-card">
+        <div class="interp-heading">
+          <span class="interp-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/></svg>
+          </span>
+          <div class="interp-label">권한과 접근 제어</div>
+        </div>
+        <p class="interp-origin"><span class="interp-line-label">원문</span>역할별 기능과 데이터 접근<br>권한을 일관되게 적용</p>
+        <p class="interp-decision"><span class="interp-line-label">해석</span>서버가 현재 권한을 다시 확인하고<br>비인가 자원은 404 처리</p>
+        <span class="interp-reference">SFR-003, SFR-006<span class="interp-adr">ADR-008: 비인가 프로젝트 자원 응답 정책</span></span>
+      </article>
+
+      <article class="interp-card">
+        <div class="interp-heading">
+          <span class="interp-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="m9 15 2 2 4-4"/></svg>
+          </span>
+          <div class="interp-label">안전한 소스 분석</div>
+        </div>
+        <p class="interp-origin"><span class="interp-line-label">원문</span>여러 방식의 소스 등록과<br>분석 처리</p>
+        <p class="interp-decision"><span class="interp-line-label">해석</span>ZIP 업로드부터 구현하고<br>경로와 실행 자원 위험 차단</p>
+        <span class="interp-reference">SFR-007<span class="interp-adr">ADR-006: MVP 소스 등록 범위</span></span>
+      </article>
+
+      <article class="interp-card">
+        <div class="interp-heading">
+          <span class="interp-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M9 11 12 14 22 4"/><path d="M21 12v7a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h12"/><path d="M7 9h5"/><path d="M7 13h3"/></svg>
+          </span>
+          <div class="interp-label">KISA 기준 연계</div>
+        </div>
+        <p class="interp-origin"><span class="interp-line-label">원문</span>KISA 49개 항목을<br>구현 상태와 함께 관리</p>
+        <p class="interp-decision"><span class="interp-line-label">해석</span>49개 기준은 모두 관리하고<br>검증한 탐지만 부분 지원으로 표시</p>
+        <span class="interp-reference">SFR-013, SFR-014<span class="interp-adr">ADR-011: KISA 탐지 우선순위와 매핑 정책</span></span>
+      </article>
+
+      </div>
+      <p class="adr-footnote">* ADR = 설계 판단과 그 이유를 기록한 문서</p>
+    </div>
+  </section>
+
+  <!-- Slide 3: MVP 범위 -->
+  <section class="slide" id="scope">
+    <div class="slide-head">
+      <span class="page-index">02</span>
+      <h2 class="slide-title">MVP 범위</h2>
+    </div>
+    <div class="scope-content">
+      <section class="scope-column required">
+        <h3 class="scope-heading"><span class="symbol">+</span>9/3까지 완주할 필수 기능</h3>
+        <ul class="scope-list">
+          <li class="scope-item"><span class="symbol">+</span><div><strong>인증과 권한</strong><span>로그인, 역할 구분, 프로젝트별 접근 제어</span></div></li>
+          <li class="scope-item"><span class="symbol">+</span><div><strong>프로젝트 관리</strong><span>등록, 조회, 수정, 사용자 접근권한 관리</span></div></li>
+          <li class="scope-item"><span class="symbol">+</span><div><strong>안전한 분석 실행</strong><span>ZIP 소스 등록, 파일 검증, 분석 실행과 상태 관리</span></div></li>
+          <li class="scope-item"><span class="symbol">+</span><div><strong>결과와 진단 기준 조회</strong><span>분석 결과, KISA 49개 기준 카탈로그, 지원 상태 관리</span></div></li>
+        </ul>
+      </section>
+
+      <section class="scope-column later">
+        <h3 class="scope-heading"><span class="symbol">−</span>후속 확장</h3>
+        <ul class="scope-list">
+          <li class="scope-item"><span class="symbol">−</span><div><strong>소스 연동 확대</strong><span>Git 저장소와 내부 경로 연동</span></div></li>
+          <li class="scope-item"><span class="symbol">−</span><div><strong>탐지 범위 확대</strong><span>KISA 49개 항목의 전체 자동 탐지</span></div></li>
+          <li class="scope-item"><span class="symbol">−</span><div><strong>관리 기능 확대</strong><span>프로젝트 삭제와 관리자 소스 뷰어</span></div></li>
+        </ul>
+      </section>
+    </div>
+  </section>
+
+  <!-- Slide 4: ADR 소개 -->
+  <section class="slide" id="adr">
+    <div class="slide-head">
+      <span class="page-index">03</span>
+      <h2 class="slide-title">설계 과정 - ADR</h2>
+    </div>
+    <div class="adr-showcase-content">
+      <div class="adr-intro-panel">
+        <p class="adr-acronym">아키텍처 결정 기록 (Architecture Decision Record)</p>
+        <h3>“왜 이 선택을 했는가”</h3>
+      </div>
+      <figure class="adr-showcase-frame"><img src="assets/adr-files.png" alt="SecScan의 ADR Markdown 문서 목록"></figure>
+    </div>
+  </section>
+
+  <!-- Slide 5: 현재 설계 - ADR-005 -->
+  <section class="slide" id="decision-snapshot">
+    <div class="slide-head">
+      <span class="page-index">04</span>
+      <h2 class="slide-title">현재 설계 - 진단 결과에 분석 시점 스냅샷</h2>
+    </div>
+    <div class="design-content">
+      <div class="single-decision">
+        <section class="decision-block">
+          <span class="decision-adr">ADR-005: 진단 결과에 분석 시점 스냅샷 저장</span>
+          <h4>과거 분석 결과 유지</h4>
+          <p class="decision-copy">카탈로그를 나중에 수정해도<br>분석 당시의 항목명과 기준, 심각도는 그대로 남김</p>
+          <div class="mini-flow" aria-label="분석 기록 저장 구조">
+            <strong>프로젝트</strong><span class="flow-arrow" aria-hidden="true">→</span><strong>분석</strong><span class="flow-arrow" aria-hidden="true">→</span><strong>진단 결과</strong>
+          </div>
+        </section>
+        <figure class="decision-media-slot decision-media"><img src="assets/adr-005.png" alt="ADR-005 분석 시점 스냅샷 저장 문서"></figure>
+      </div>
+    </div>
+  </section>
+
+  <!-- Slide 6: 현재 설계 - ADR-023 -->
+  <section class="slide" id="decision-rules">
+    <div class="slide-head">
+      <span class="page-index">04</span>
+      <h2 class="slide-title">현재 설계 - Semgrep과 자체 KISA 규칙</h2>
+    </div>
+    <div class="design-content">
+      <div class="single-decision">
+        <section class="decision-block">
+          <span class="decision-adr">ADR-023: 고정 Semgrep 실행과 자체 KISA 규칙</span>
+          <h4>자체 규칙</h4>
+          <p class="decision-copy">규칙 라이선스 제약 확인 후<br>Semgrep OSS 엔진은 유지하고<br>KISA 기준 기반 규칙만 직접 작성</p>
+          <div class="mini-flow" aria-label="분석 규칙 선택">
+            <strong>Semgrep OSS</strong><span class="flow-arrow" aria-hidden="true">+</span><strong>자체 규칙</strong>
+          </div>
+        </section>
+        <figure class="decision-media-slot decision-media"><img src="assets/adr-023.png" alt="ADR-023 고정 Semgrep 실행과 자체 KISA 규칙 문서"></figure>
+      </div>
+    </div>
+  </section>
+
+  <!-- Slide 7: 구현 상태 - 에픽 진행 -->
+  <section class="slide" id="epic-progress">
+    <div class="slide-head">
+      <span class="page-index">05</span>
+      <h2 class="slide-title">구현 상태 - 에픽 진행</h2>
+    </div>
+    <div class="epic-overview">
+      <p class="epic-overview-status"><strong>E1~E6 구현 완료</strong><span>→</span>E7 최종 검증</p>
+      <div class="epic-grid">
+        <section class="epic-card"><strong>E1</strong><span>데이터 모델<br>API 계약</span><small>완료</small></section>
+        <section class="epic-card"><strong>E2</strong><span>인증과<br>권한</span><small>완료</small></section>
+        <section class="epic-card"><strong>E3</strong><span>소스 등록<br>보안</span><small>완료</small></section>
+        <section class="epic-card"><strong>E4</strong><span>분석<br>실행</span><small>완료</small></section>
+        <section class="epic-card"><strong>E5</strong><span>결과와<br>KISA 매핑</span><small>완료</small></section>
+        <section class="epic-card"><strong>E6</strong><span>결과 및<br>카탈로그</span><small>완료</small></section>
+        <section class="epic-card pending"><strong>E7</strong><span>테스트와<br>검증 증거</span><small>최종 검증</small></section>
+      </div>
+    </div>
+  </section>
+
+  <!-- Slide 8: 구현 상태 - 주요 기능 -->
+  <section class="slide" id="status">
+    <div class="slide-head">
+      <span class="page-index">05</span>
+      <h2 class="slide-title">구현 상태 - 주요 기능</h2>
+    </div>
+
+    <div class="implementation-summary">
+      <section class="implementation-detail" aria-label="구현 완료 영역">
+        <div class="implementation-detail-item"><strong>사용자와 프로젝트 권한</strong><span>역할별 조회와 프로젝트 접근 제어</span></div>
+        <div class="implementation-detail-item"><strong>소스 등록 보안</strong><span>ZIP 파일 검증과 작업 공간 격리</span></div>
+        <div class="implementation-detail-item"><strong>분석 실행 관리</strong><span>상태 확인, 재실행, 실행 자원 제한</span></div>
+        <div class="implementation-detail-item"><strong>결과와 KISA 카탈로그</strong><span>진단 결과 정리, 상세 조회, 구현 상태 관리</span></div>
+      </section>
+      <section>
+        <span class="implementation-list-label">남은 검증</span>
+        <ul class="implementation-list">
+          <li class="implementation-item"><span class="implementation-marker">+</span><span>언어별 취약 코드와 정상 코드 샘플</span></li>
+          <li class="implementation-item"><span class="implementation-marker">+</span><span>보안과 권한 시나리오</span></li>
+        </ul>
+      </section>
+    </div>
+  </section>
+
+  <!-- Slide 8: 프로젝트 목록 -->
+  <section class="slide showcase-slide" id="screen-project">
+    <div class="slide-head">
+      <span class="page-index">05</span>
+      <h2 class="slide-title">구현 상태 - 프로젝트 목록</h2>
+    </div>
+    <div class="showcase-content">
+      <figure class="showcase-frame"><img src="assets/project-list.png" alt="프로젝트 목록 화면"></figure>
+    </div>
+  </section>
+
+  <!-- Slide 9: 프로젝트 상세와 분석 이력 -->
+  <section class="slide showcase-slide" id="screen-results">
+    <div class="slide-head">
+      <span class="page-index">05</span>
+      <h2 class="slide-title">구현 상태 - 분석 이력</h2>
+    </div>
+    <div class="showcase-content">
+      <figure class="showcase-frame"><img src="assets/project-detail.png" alt="프로젝트 상세와 분석 이력 화면"></figure>
+    </div>
+  </section>
+
+  <!-- Slide 10: 탐지 결과 -->
+  <section class="slide showcase-slide" id="screen-findings">
+    <div class="slide-head">
+      <span class="page-index">05</span>
+      <h2 class="slide-title">구현 상태 - 탐지 결과</h2>
+    </div>
+    <div class="showcase-content">
+      <figure class="showcase-frame"><img src="assets/findings.png" alt="탐지 결과 목록과 상세 화면"></figure>
+    </div>
+  </section>
+
+  <!-- Slide 11: KISA 카탈로그 -->
+  <section class="slide showcase-slide" id="screen-catalog">
+    <div class="slide-head">
+      <span class="page-index">05</span>
+      <h2 class="slide-title">구현 상태 - KISA 진단 기준 카탈로그</h2>
+    </div>
+    <div class="showcase-content">
+      <figure class="showcase-frame"><img src="assets/catalog.png" alt="KISA 진단 기준 목록과 상세 화면"></figure>
+    </div>
+  </section>
+
+  <!-- Slide 11: 개발 일정 -->
+  <section class="slide" id="plan">
+    <div class="slide-head">
+      <span class="page-index">06</span>
+      <h2 class="slide-title">개발 일정</h2>
+    </div>
+
+    <div class="timeline">
+      <div class="tl-items">
+        <div class="tl-item on">
+          <span class="tl-date">8/31</span>
+          <div class="tl-work"><span class="tl-task">중간 발표</span><span class="tl-done">피드백 수집과 반영 범위 확정</span></div>
+        </div>
+        <div class="tl-item on">
+          <span class="tl-date">9/1</span>
+          <div class="tl-work"><span class="tl-task">탐지 규칙과 언어별 샘플 검증</span><span class="tl-done">취약 예제 탐지, 정상 예제 미탐지 확인</span></div>
+        </div>
+        <div class="tl-item on">
+          <span class="tl-date">9/2</span>
+          <div class="tl-work"><span class="tl-task">보안과 권한 시나리오 검증</span><span class="tl-done">허용 요청과 거부 요청 모두 확인</span></div>
+        </div>
+        <div class="tl-item on">
+          <span class="tl-date">9/3</span>
+          <div class="tl-work"><span class="tl-task">최종 발표</span><span class="tl-done">전체 회귀 테스트와 최종 시연 리허설</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div>
+</body>
+</html>

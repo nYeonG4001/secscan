@@ -126,13 +126,15 @@ export default function AnalysisStatusPage() {
         <span aria-hidden="true">&gt;</span>
         <span className="shrink-0 text-secscan-foreground">{breadcrumbEnd}</span>
       </nav>
-      <div className="secscan-panel mt-5 flex min-w-0 flex-col gap-5 p-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-        <div className="min-w-0">
-          <h1 className="text-3xl font-bold tracking-tight">분석 상태</h1>
-          <p className="mt-2 text-sm text-secscan-muted">상태: {analysis.status}</p>
+      {analysis.status !== "COMPLETED" && (
+        <div className="secscan-panel mt-5 flex min-w-0 flex-col gap-5 p-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+          <div className="min-w-0">
+            <h1 className="text-3xl font-bold tracking-tight">분석 상태</h1>
+            <p className="mt-2 text-sm text-secscan-muted">상태: {analysis.status}</p>
+          </div>
+          <span className={`secscan-status-badge shrink-0 ${presentation.className}`}>{presentation.label}</span>
         </div>
-        <span className={`secscan-status-badge shrink-0 ${presentation.className}`}>{presentation.label}</span>
-      </div>
+      )}
       {transportError && (
         <div role="alert" className="secscan-error-state mt-5 text-sm">
           <p>상태를 갱신하지 못했습니다. 분석은 계속 진행 중일 수 있습니다.</p>
@@ -145,7 +147,7 @@ export default function AnalysisStatusPage() {
           <p className="mt-2 text-sm text-secscan-muted">상태를 자동으로 갱신합니다.</p>
         </div>
       )}
-      {analysis.status === "COMPLETED" && <div className="mt-6"><FindingsPage analysisId={analysis.id.toString()} /></div>}
+      {analysis.status === "COMPLETED" && <div className="mt-5"><FindingsPage analysisId={analysis.id.toString()} /></div>}
       {analysis.status === "FAILED" && (
         <div role="alert" className="secscan-error-state mt-5 min-w-0 p-5">
           <p>{user?.role === "ADMIN" ? analysis.error_message || USER_FAILURE_MESSAGE : USER_FAILURE_MESSAGE}</p>

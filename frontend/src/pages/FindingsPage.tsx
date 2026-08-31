@@ -28,7 +28,6 @@ export default function FindingsPage({ analysisId }: { analysisId: string }) {
   const [selected, setSelected] = useState<FindingDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [filterOpen, setFilterOpen] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -81,48 +80,32 @@ export default function FindingsPage({ analysisId }: { analysisId: string }) {
     setFilters({ limit: LIMIT, offset: 0 });
   }
 
-  const activeFilterCount = [filters.severity, filters.mapping_status, filters.language].filter(Boolean).length;
-  const hasFilters = activeFilterCount > 0;
+  const hasFilters = [filters.severity, filters.mapping_status, filters.language].some(Boolean);
 
   if (loading) return <section className="secscan-loading-state" aria-busy="true">탐지 결과를 불러오는 중...</section>;
 
   return (
     <section className="min-h-[560px] min-w-0">
-      <div className="mb-5 flex min-w-0 flex-wrap items-end justify-between gap-4">
+      <div className="mb-5 min-w-0">
         <div className="min-w-0">
           <h1 className="text-3xl font-bold tracking-tight">탐지 결과</h1>
           <p className="mt-2 text-sm text-secscan-muted">총 {total}건</p>
         </div>
-        <div className="relative">
-          <button type="button" aria-expanded={filterOpen} aria-controls="finding-filter-panel" onClick={() => setFilterOpen((open) => !open)} className="secscan-secondary-button">
-            필터{activeFilterCount > 0 ? ` ${activeFilterCount}` : ""}
-          </button>
-          {filterOpen && (
-            <div id="finding-filter-panel" className="secscan-panel absolute right-0 z-10 mt-2 w-[min(22rem,calc(100vw-3rem))] p-4 shadow-2xl shadow-black/40" aria-label="결과 필터">
-              <div className="grid gap-3">
-                <label className="block text-sm font-medium">심각도
-                  <select aria-label="심각도 필터" className="mt-2" value={filters.severity ?? ""} onChange={(event) => changeFilter("severity", event.target.value)}>
-                    <option value="">모든 심각도</option>
-                    {["CRITICAL", "HIGH", "MEDIUM", "LOW", "UNKNOWN"].map((value) => <option key={value}>{value}</option>)}
-                  </select>
-                </label>
-                <label className="block text-sm font-medium">KISA 매핑
-                  <select aria-label="KISA 매핑 필터" className="mt-2" value={filters.mapping_status ?? ""} onChange={(event) => changeFilter("mapping_status", event.target.value)}>
-                    <option value="">모든 매핑</option>
-                    <option value="KISA_MAPPED">KISA 매핑됨</option>
-                    <option value="UNMAPPED">미매핑</option>
-                  </select>
-                </label>
-                <label className="block text-sm font-medium">언어
-                  <select aria-label="언어 필터" className="mt-2" value={filters.language ?? ""} onChange={(event) => changeFilter("language", event.target.value)}>
-                    <option value="">모든 언어</option>
-                    {["JAVA", "JAVASCRIPT", "PYTHON"].map((value) => <option key={value}>{value}</option>)}
-                  </select>
-                </label>
-                {hasFilters && <button type="button" onClick={resetFilters} className="secscan-secondary-button justify-self-start px-3 py-1.5 text-xs">필터 초기화</button>}
-              </div>
-            </div>
-          )}
+        <div className="mt-5 flex min-w-0 flex-wrap items-center gap-3" aria-label="결과 필터">
+          <select aria-label="심각도 필터" className="w-auto min-w-40" value={filters.severity ?? ""} onChange={(event) => changeFilter("severity", event.target.value)}>
+            <option value="">심각도: 전체</option>
+            {["CRITICAL", "HIGH", "MEDIUM", "LOW", "UNKNOWN"].map((value) => <option key={value}>{value}</option>)}
+          </select>
+          <select aria-label="KISA 매핑 필터" className="w-auto min-w-40" value={filters.mapping_status ?? ""} onChange={(event) => changeFilter("mapping_status", event.target.value)}>
+            <option value="">매핑 상태: 전체</option>
+            <option value="KISA_MAPPED">KISA 매핑됨</option>
+            <option value="UNMAPPED">미매핑</option>
+          </select>
+          <select aria-label="언어 필터" className="w-auto min-w-36" value={filters.language ?? ""} onChange={(event) => changeFilter("language", event.target.value)}>
+            <option value="">언어: 전체</option>
+            {["JAVA", "JAVASCRIPT", "PYTHON"].map((value) => <option key={value}>{value}</option>)}
+          </select>
+          {hasFilters && <button type="button" onClick={resetFilters} className="secscan-secondary-button px-3 py-1.5 text-xs">필터 초기화</button>}
         </div>
       </div>
 

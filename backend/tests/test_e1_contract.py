@@ -302,6 +302,8 @@ PROJECT_FIELDS = {
     "name",
     "description",
     "source_type",
+    "source_status",
+    "latest_analysis_status",
     "target_languages",
     "created_by",
     "created_at",

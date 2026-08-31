@@ -46,6 +46,7 @@ describe("authentication routes", () => {
     expect(screen.getByText("인증 정보를 확인하는 중...")).toBeInTheDocument();
     expect(await screen.findByRole("heading", { name: "프로젝트" })).toBeInTheDocument();
     expect(getCurrentUser).toHaveBeenCalledOnce();
+    expect(screen.getByText("관리자")).toBeInTheDocument();
   });
 
   it("redirects a /auth/me 401 to login with the generic session message", async () => {
@@ -99,30 +100,32 @@ describe("authentication routes", () => {
     expect(screen.queryByRole("button", { name: "새 프로젝트" })).not.toBeInTheDocument();
   });
 
-  it("renders the access-management entry point only for ADMIN", async () => {
+  it("renders the consolidated project actions only for ADMIN", async () => {
     getCurrentUser.mockResolvedValue({ email: "admin@secscan.io", role: "ADMIN" });
     api.get.mockResolvedValue({ data: { id: 1, name: "관리자 프로젝트", description: null } });
 
     renderApp("/projects/1");
 
-    expect(await screen.findByRole("button", { name: "접근권한 관리" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "소스 등록" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "분석 실행" })).not.toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "관리" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "소스" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "접근권한 관리" })).not.toBeInTheDocument();
   });
 
-  it("opens an admin-only access drawer and closes it with Escape", async () => {
+  it("opens the admin project-management drawer and closes it with Escape", async () => {
     getCurrentUser.mockResolvedValue({ email: "admin@secscan.io", role: "ADMIN" });
     api.get
       .mockResolvedValueOnce({ data: { id: 1, name: "관리자 프로젝트", description: null } })
+      .mockResolvedValueOnce({ data: [] })
       .mockResolvedValueOnce({ data: [] });
 
     renderApp("/projects/1");
-    fireEvent.click(await screen.findByRole("button", { name: "접근권한 관리" }));
+    fireEvent.click(await screen.findByRole("button", { name: "관리" }));
 
-    expect(await screen.findByRole("dialog", { name: "접근권한 관리" })).toBeInTheDocument();
+    expect(await screen.findByRole("dialog", { name: "프로젝트 관리" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "사용자 접근권한" })).toBeInTheDocument();
     expect(document.body.style.overflow).toBe("hidden");
     fireEvent.keyDown(document, { key: "Escape" });
-    await waitFor(() => expect(screen.queryByRole("dialog", { name: "접근권한 관리" })).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "프로젝트 관리" })).not.toBeInTheDocument());
     expect(document.body.style.overflow).toBe("");
   });
 
@@ -134,10 +137,9 @@ describe("authentication routes", () => {
 
     renderApp("/projects/1");
 
-    await waitFor(() => expect(screen.getByRole("button", { name: "소스 등록" })).toBeDisabled());
-    expect(screen.getByText("분석이 끝난 뒤 업로드할 수 있습니다.")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "분석 실행" })).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "분석 상태 보기" })).toHaveAttribute("href", "/projects/1/analyses/9");
+    await waitFor(() => expect(screen.getByRole("button", { name: "소스" })).toBeDisabled());
+    expect(screen.getByText("분석 요청 시각")).toBeInTheDocument();
+    expect(screen.getByText("분석 진행 중")).toBeInTheDocument();
   });
 
   it("does not render the access-management drawer for USER", async () => {
@@ -147,9 +149,33 @@ describe("authentication routes", () => {
     renderApp("/projects/1");
 
     expect(await screen.findByRole("heading", { name: "사용자 프로젝트" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "접근권한 관리" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "소스 등록" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("dialog", { name: "접근권한 관리" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "관리" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "소스" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: "프로젝트 관리" })).not.toBeInTheDocument();
+  });
+
+  it("shows analysis request, start, completion, and result fields in history", async () => {
+    getCurrentUser.mockResolvedValue({ email: "admin@secscan.io", role: "ADMIN" });
+    api.get
+      .mockResolvedValueOnce({ data: { id: 1, name: "이력 프로젝트", description: null, source_status: "REGISTERED" } })
+      .mockResolvedValueOnce({
+        data: [{
+          id: 11,
+          project_id: 1,
+          executed_by: 1,
+          status: "COMPLETED",
+          created_at: "2026-08-30T09:00:00Z",
+          started_at: "2026-08-30T09:01:00Z",
+          completed_at: "2026-08-30T09:02:00Z",
+        }],
+      });
+
+    renderApp("/projects/1");
+
+    expect(await screen.findByRole("columnheader", { name: "분석 요청 시각" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "시작 시각" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "완료 시각" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "결과 보기" })).toHaveAttribute("href", "/projects/1/analyses/11");
   });
 
   it("shows the generic not-found message for project detail 404", async () => {
@@ -246,7 +272,9 @@ describe("authentication routes", () => {
     expect(await screen.findByText("상태를 갱신하지 못했습니다. 분석은 계속 진행 중일 수 있습니다.")).toBeInTheDocument();
     expect(screen.queryByText("분석을 완료하지 못했습니다. 관리자에게 문의하세요.")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "새로고침" }));
-    expect(await screen.findByText("상태: COMPLETED")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "탐지 결과" })).toBeInTheDocument();
+    expect(screen.queryByText("상태: COMPLETED")).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "분석 상태" })).not.toBeInTheDocument();
   });
 
   it("returns to login when analysis polling receives 401", async () => {
@@ -274,6 +302,7 @@ describe("authentication routes", () => {
     api.post.mockRejectedValue({ response: { status: 409, data: { code, ...data } } });
 
     renderApp("/projects/1");
+    fireEvent.click(await screen.findByRole("button", { name: "소스" }));
     fireEvent.click(await screen.findByRole("button", { name: "분석 실행" }));
 
     if (expected === "analysis") {

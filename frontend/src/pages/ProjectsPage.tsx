@@ -14,6 +14,8 @@ export interface Project {
   description: string | null;
   source_status?: "NEEDS_UPLOAD" | "REGISTERED";
   target_languages?: string[] | null;
+  latest_analysis_status?: "PENDING" | "RUNNING" | "COMPLETED" | "FAILED" | null;
+  updated_at?: string;
 }
 
 function errorStatus(error: unknown) {
@@ -22,6 +24,35 @@ function errorStatus(error: unknown) {
 
 function sourceStatusLabel(status: Project["source_status"]) {
   return status === "REGISTERED" ? "등록됨" : "등록 필요";
+}
+
+function analysisStatusLabel(status: Project["latest_analysis_status"]) {
+  if (status === "PENDING") return "분석 대기";
+  if (status === "RUNNING") return "분석 진행 중";
+  if (status === "COMPLETED") return "분석 완료";
+  if (status === "FAILED") return "분석 실패";
+  return "분석 전";
+}
+
+function analysisStatusClass(status: Project["latest_analysis_status"]) {
+  if (status === "RUNNING") return "secscan-status-active";
+  if (status === "COMPLETED") return "secscan-status-success";
+  if (status === "FAILED") return "secscan-status-failed";
+  return "secscan-status-neutral";
+}
+
+function formatUpdatedAt(value: Project["updated_at"]) {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return new Intl.DateTimeFormat("ko-KR", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(date);
 }
 
 export default function ProjectsPage() {
@@ -83,9 +114,8 @@ export default function ProjectsPage() {
       <div className="mb-7 mt-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
           <h1 className="text-3xl font-bold tracking-tight">프로젝트</h1>
-          <p className="mt-2 max-w-2xl text-sm text-secscan-muted">등록된 프로젝트를 선택해 소스 등록, 분석 실행, 결과 조회를 진행합니다.</p>
         </div>
-        {user?.role === "ADMIN" && <button type="button" onClick={() => setShowCreate(true)} className="secscan-primary-button shrink-0">새 프로젝트</button>}
+        {user?.role === "ADMIN" && <button type="button" onClick={() => setShowCreate(true)} className="secscan-primary-button shrink-0"><span aria-hidden="true" className="mr-1.5 text-base leading-none">＋</span>새 프로젝트</button>}
       </div>
       {projects.length === 0 ? (
         <div className="secscan-empty-state">
@@ -93,28 +123,53 @@ export default function ProjectsPage() {
           {user?.role === "ADMIN" && <p className="mt-2 text-sm">새 프로젝트를 등록해 소스 분석을 시작할 수 있습니다.</p>}
         </div>
       ) : (
-        <ul className="secscan-panel overflow-hidden divide-y divide-secscan-border">
-          {projects.map((project) => (
-            <li key={project.id} className="min-w-0">
-              <Link to={`/projects/${project.id}`} className="secscan-panel-interactive block min-w-0 px-5 py-4 focus-visible:relative">
-                <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                  <div className="min-w-0 lg:max-w-xl">
-                    <p className="break-words font-semibold text-secscan-foreground">{project.name}</p>
-                    {project.description && <p className="mt-1 break-words text-sm text-secscan-muted">{project.description}</p>}
-                  </div>
-                  <div className="flex min-w-0 flex-wrap items-center gap-2 text-xs">
-                    {project.target_languages?.map((language) => (
-                      <span key={language} className="secscan-status-badge secscan-status-neutral">{language}</span>
-                    ))}
-                    <span className={`secscan-status-badge ${project.source_status === "REGISTERED" ? "secscan-status-success" : "secscan-status-neutral"}`}>
-                      {sourceStatusLabel(project.source_status)}
-                    </span>
-                  </div>
-                </div>
-              </Link>
-            </li>
-          ))}
-        </ul>
+        <div className="secscan-panel overflow-x-auto">
+          <table className="min-w-[860px] w-full border-collapse text-left text-sm" aria-label="프로젝트 목록">
+            <thead className="border-b border-secscan-border bg-secscan-surface-2 text-xs font-semibold text-secscan-muted">
+              <tr>
+                <th scope="col" className="px-5 py-3">프로젝트명</th>
+                <th scope="col" className="px-5 py-3">분석 언어</th>
+                <th scope="col" className="px-5 py-3">소스 상태</th>
+                <th scope="col" className="px-5 py-3">최근 분석 상태</th>
+                <th scope="col" className="px-5 py-3">수정 시각</th>
+                <th scope="col" aria-label="프로젝트 열기" className="w-12 px-4 py-3" />
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-secscan-border">
+              {projects.map((project) => (
+                <tr
+                  key={project.id}
+                  tabIndex={0}
+                  onClick={() => navigate(`/projects/${project.id}`)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      navigate(`/projects/${project.id}`);
+                    }
+                  }}
+                  className="cursor-pointer transition-colors hover:bg-secscan-surface-2 focus-visible:bg-secscan-surface-2"
+                >
+                  <td className="max-w-sm px-5 py-4 font-semibold text-secscan-foreground">
+                    <Link to={`/projects/${project.id}`} className="block break-words hover:text-secscan-violet">
+                      {project.name}
+                    </Link>
+                  </td>
+                  <td className="px-5 py-4">
+                    <div className="flex flex-nowrap gap-1.5 whitespace-nowrap">
+                      {project.target_languages?.length
+                        ? project.target_languages.map((language) => <span key={language} className="secscan-status-badge secscan-status-neutral">{language}</span>)
+                        : <span className="text-secscan-muted">—</span>}
+                    </div>
+                  </td>
+                  <td className="px-5 py-4"><span className={`secscan-status-badge ${project.source_status === "REGISTERED" ? "secscan-status-success" : "secscan-status-neutral"}`}>{sourceStatusLabel(project.source_status)}</span></td>
+                  <td className="px-5 py-4"><span className={`secscan-status-badge ${analysisStatusClass(project.latest_analysis_status)}`}>{analysisStatusLabel(project.latest_analysis_status)}</span></td>
+                  <td className="whitespace-nowrap px-5 py-4 text-secscan-muted">{formatUpdatedAt(project.updated_at)}</td>
+                  <td className="px-4 py-4 text-right"><Link to={`/projects/${project.id}`} aria-label={`${project.name} 열기`} className="inline-flex p-1 text-xl text-secscan-muted hover:text-secscan-foreground">›</Link></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
       {showCreate && user?.role === "ADMIN" && <ActionDrawer title="새 프로젝트" onClose={() => setShowCreate(false)} footer={<button type="submit" form="create-project" className="secscan-primary-button w-full">등록</button>}><form id="create-project" onSubmit={submitCreate} className="space-y-4"><label className="block text-sm font-medium">프로젝트 이름<input required value={name} onChange={(event) => setName(event.target.value)} className="mt-2" /></label><label className="block text-sm font-medium">설명<textarea value={description} onChange={(event) => setDescription(event.target.value)} className="mt-2" /></label></form></ActionDrawer>}
     </section>

@@ -5,6 +5,8 @@ from sqlalchemy.orm import Session
 from app.core.database import SessionLocal, get_db
 from app.core.security import hash_password
 from app.main import app
+from app.models.analysis import Analysis
+from app.models.project import Project
 from app.models.user import User
 
 
@@ -75,6 +77,35 @@ def test_project_description_is_optional(client, db_session):
 
     assert response.status_code == 200
     assert response.json()["description"] is None
+
+
+def test_project_list_exposes_computed_source_and_latest_analysis_status(client, db_session):
+    admin = create_user(db_session, email="admin@secscan.io", role="ADMIN")
+    project = Project(
+        name="분석 상태 프로젝트",
+        created_by=admin.id,
+        source_location="/internal/current-source",
+        target_languages=["JAVA", "PYTHON"],
+    )
+    db_session.add(project)
+    db_session.commit()
+    db_session.refresh(project)
+    db_session.add_all(
+        [
+            Analysis(project_id=project.id, executed_by=admin.id, status="FAILED"),
+            Analysis(project_id=project.id, executed_by=admin.id, status="COMPLETED"),
+        ]
+    )
+    db_session.commit()
+
+    login(client, admin.email)
+    response = client.get("/projects/")
+
+    assert response.status_code == 200
+    body = response.json()[0]
+    assert body["source_status"] == "REGISTERED"
+    assert body["latest_analysis_status"] == "COMPLETED"
+    assert body["target_languages"] == ["JAVA", "PYTHON"]
 
 
 def test_create_project_missing_name_returns_422(client, db_session):

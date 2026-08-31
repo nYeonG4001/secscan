@@ -6,6 +6,8 @@ import { useAuth } from "../auth/useAuth";
 export function AppShell({ children }: { children: ReactNode }) {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  const roleLabel = user?.role === "ADMIN" ? "관리자" : "일반 사용자";
+  const roleInitial = user?.role === "ADMIN" ? "관" : "사";
 
   async function handleLogout() {
     await signOut();
@@ -22,7 +24,15 @@ export function AppShell({ children }: { children: ReactNode }) {
             <NavLink to="/catalog" className={({ isActive }) => `app-nav-link ${isActive ? "app-nav-link-active" : ""}`}>진단 기준</NavLink>
           </nav>
           <div className="ml-auto flex min-w-0 items-center gap-3 text-sm">
-            <span className="max-w-48 truncate text-secscan-muted" title={user?.email}>{user?.email}</span>
+            <div className="flex min-w-0 items-center gap-2.5">
+              <span aria-hidden="true" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-secscan-border bg-secscan-surface-2 text-xs font-semibold text-secscan-muted">
+                {roleInitial}
+              </span>
+              <div className="hidden min-w-0 sm:block">
+                <p className="text-sm font-semibold text-secscan-foreground">{roleLabel}</p>
+                <p className="max-w-52 truncate text-xs text-secscan-muted" title={user?.email}>{user?.email}</p>
+              </div>
+            </div>
             <button type="button" onClick={handleLogout} className="shrink-0 rounded-lg border border-secscan-border px-3 py-1.5 text-sm">
               로그아웃
             </button>

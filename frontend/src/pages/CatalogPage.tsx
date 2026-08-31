@@ -7,12 +7,56 @@ import { useAuth } from "../auth/useAuth";
 import { ActionDrawer } from "../components/ActionDrawer";
 import { SESSION_EXPIRED_MESSAGE } from "../auth/RouteGuards";
 
-const emptyCreate = { kisa_code: "", name: "", category: "", default_severity: "MEDIUM", description: "", criterion_id: "", item_number: "", reference_info: "" };
+const emptyCreate = {
+  kisa_code: "",
+  name: "",
+  category: "",
+  default_severity: "MEDIUM",
+  description: "",
+  criterion_id: "",
+  item_number: "",
+  reference_info: "",
+};
+
+interface CatalogDraft {
+  description: string;
+  reference_info: string;
+  active: boolean;
+  default_severity: string;
+  implementation_status: CatalogItem["implementation_status"];
+  recommendation: string;
+}
+
+function toDraft(item: CatalogItem): CatalogDraft {
+  return {
+    description: item.description ?? "",
+    reference_info: item.reference_info ?? "",
+    active: item.active,
+    default_severity: item.default_severity,
+    implementation_status: item.implementation_status,
+    recommendation: item.recommendation ?? "",
+  };
+}
+
+function draftChanged(item: CatalogItem, draft: CatalogDraft | null) {
+  if (!draft) return false;
+  const initial = toDraft(item);
+  return Object.entries(initial).some(([key, value]) => draft[key as keyof CatalogDraft] !== value);
+}
 
 function implementationStatusClass(status: CatalogItem["implementation_status"]) {
   if (status === "지원") return "secscan-status-success";
   if (status === "부분 지원") return "secscan-status-active";
   return "secscan-status-neutral";
+}
+
+function SearchIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4">
+      <circle cx="10.75" cy="10.75" r="5.75" />
+      <path d="m15.25 15.25 4 4" />
+    </svg>
+  );
 }
 
 export default function CatalogPage() {
@@ -21,9 +65,10 @@ export default function CatalogPage() {
   const admin = user?.role === "ADMIN";
   const [items, setItems] = useState<CatalogItem[]>([]);
   const [selected, setSelected] = useState<CatalogItem | null>(null);
+  const [draft, setDraft] = useState<CatalogDraft | null>(null);
   const [search, setSearch] = useState("");
-  const [status, setStatus] = useState("");
-  const [editing, setEditing] = useState(false);
+  const [category, setCategory] = useState("");
+  const [implementationStatus, setImplementationStatus] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
   const [create, setCreate] = useState(emptyCreate);
   const [error, setError] = useState<string | null>(null);
@@ -51,28 +96,43 @@ export default function CatalogPage() {
     void loadCatalog();
   }, [loadCatalog]);
 
+  const categories = useMemo(
+    () => Array.from(new Set(items.map((item) => item.category))).sort((first, second) => first.localeCompare(second, "ko")),
+    [items],
+  );
   const filtered = useMemo(() => items.filter((item) => (
-    (!status || item.implementation_status === status)
+    (!category || item.category === category)
+    && (!implementationStatus || item.implementation_status === implementationStatus)
     && `${item.kisa_code} ${item.name} ${item.category}`.toLowerCase().includes(search.toLowerCase())
-  )), [items, search, status]);
+  )), [category, implementationStatus, items, search]);
+  const hasChanges = selected ? draftChanged(selected, draft) : false;
+
+  function selectItem(item: CatalogItem) {
+    setSelected(item);
+    setDraft(toDraft(item));
+  }
+
+  function closeDetail() {
+    setSelected(null);
+    setDraft(null);
+  }
 
   const save = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!selected) return;
-    const data = new FormData(event.currentTarget);
+    if (!selected || !draft || !hasChanges) return;
     const body: CatalogUpdate = {
-      description: String(data.get("description") || "") || null,
-      reference_info: String(data.get("reference_info") || "") || null,
-      active: data.get("active") === "on",
-      default_severity: String(data.get("default_severity")),
-      implementation_status: String(data.get("implementation_status")) as CatalogItem["implementation_status"],
-      recommendation: String(data.get("recommendation") || "") || null,
+      description: draft.description || null,
+      reference_info: draft.reference_info || null,
+      active: draft.active,
+      default_severity: draft.default_severity,
+      implementation_status: draft.implementation_status,
+      recommendation: draft.recommendation || null,
     };
     try {
       const updated = await updateCatalog(selected.kisa_code, body);
       setItems((current) => current.map((item) => item.kisa_code === updated.kisa_code ? updated : item));
       setSelected(updated);
-      setEditing(false);
+      setDraft(toDraft(updated));
       setError(null);
     } catch {
       setError("카탈로그 항목을 저장하지 못했습니다. 다시 시도해 주세요.");
@@ -94,64 +154,115 @@ export default function CatalogPage() {
         active: true,
         implementation_status: "미지원",
       });
-      setItems((current) => [...current, created].sort((a, b) => a.kisa_code.localeCompare(b.kisa_code)));
-      setSelected(created);
+      setItems((current) => [...current, created].sort((first, second) => first.kisa_code.localeCompare(second.kisa_code)));
+      selectItem(created);
       setCreateOpen(false);
       setCreate(emptyCreate);
     } catch (requestError) {
-      setError((requestError as AxiosError).response?.status === 409 ? "같은 KISA 코드가 이미 등록되어 있습니다. 코드를 확인해 주세요." : "카탈로그 항목을 등록하지 못했습니다. 다시 시도해 주세요.");
+      setError((requestError as AxiosError).response?.status === 409
+        ? "같은 KISA 코드가 이미 등록되어 있습니다. 코드를 확인해 주세요."
+        : "카탈로그 항목을 등록하지 못했습니다. 다시 시도해 주세요.");
     }
   };
 
   return (
     <section className="min-w-0">
       <div className="mb-6 flex min-w-0 flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div className="min-w-0"><h1 className="text-3xl font-bold tracking-tight">진단 기준 카탈로그</h1><p className="mt-2 text-sm text-secscan-muted">KISA 진단 기준과 구현 상태를 확인합니다.</p></div>
-        {admin && <button type="button" onClick={() => setCreateOpen(true)} className="secscan-primary-button shrink-0">새 진단 기준</button>}
+        <h1 className="text-3xl font-bold tracking-tight">진단 기준</h1>
+        {admin && (
+          <button type="button" onClick={() => setCreateOpen(true)} className="secscan-primary-button shrink-0">
+            <span aria-hidden="true" className="mr-1.5 text-base leading-none">＋</span>진단 기준 등록
+          </button>
+        )}
       </div>
 
       {error && <div role="alert" className="secscan-error-state mb-4 text-sm"><p>{error}</p><button type="button" onClick={() => void loadCatalog()} className="secscan-secondary-button mt-4">다시 시도</button></div>}
 
       <div className="mb-5 flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center">
-        <input aria-label="카탈로그 검색" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="KISA 코드, 명칭, 분류 검색" className="sm:max-w-sm" />
-        <select aria-label="구현 상태 필터" value={status} onChange={(event) => setStatus(event.target.value)} className="sm:w-44"><option value="">모든 구현 상태</option>{["지원", "부분 지원", "미지원"].map((value) => <option key={value}>{value}</option>)}</select>
+        <div className="relative min-w-0 sm:max-w-sm sm:flex-1">
+          <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-secscan-muted"><SearchIcon /></span>
+          <input aria-label="카탈로그 검색" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="기준명 또는 식별자 검색" className="w-full" style={{ paddingLeft: "2.5rem" }} />
+        </div>
+        <select aria-label="분류 필터" value={category} onChange={(event) => setCategory(event.target.value)} className="sm:w-40">
+          <option value="">분류: 전체</option>
+          {categories.map((value) => <option key={value} value={value}>{value}</option>)}
+        </select>
+        <select aria-label="구현 상태 필터" value={implementationStatus} onChange={(event) => setImplementationStatus(event.target.value)} className="sm:w-44">
+          <option value="">구현 상태: 전체</option>
+          {["지원", "부분 지원", "미지원"].map((value) => <option key={value}>{value}</option>)}
+        </select>
       </div>
 
       {filtered.length === 0 ? (
         <div className="secscan-empty-state">현재 조건에 맞는 카탈로그 항목이 없습니다.</div>
       ) : (
-        <div className={`secscan-panel grid min-w-0 overflow-hidden ${selected ? "lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]" : "grid-cols-1"} lg:h-[600px]`}>
-          <div className="min-w-0 overflow-y-auto" data-testid="catalog-list">
-            {filtered.map((item) => (
-              <button type="button" key={item.kisa_code} onClick={() => { setSelected(item); setEditing(false); }} aria-pressed={selected?.kisa_code === item.kisa_code} className={`block w-full min-w-0 border-b border-secscan-border px-5 py-4 text-left last:border-b-0 ${selected?.kisa_code === item.kisa_code ? "bg-violet-500/10" : "hover:bg-secscan-surface-2"}`}>
-                <div className="flex min-w-0 flex-wrap items-center justify-between gap-3"><strong className="break-all text-sm">{item.kisa_code}</strong><span className={`secscan-status-badge ${implementationStatusClass(item.implementation_status)}`}>{item.implementation_status}</span></div>
-                <p className="mt-2 break-words font-semibold">{item.name}</p>
-                <p className="mt-2 break-words text-sm text-secscan-muted">{item.category} · {item.item_number ?? "-"} · {item.active ? "활성" : "비활성"}</p>
-              </button>
-            ))}
+        <div className={`grid min-w-0 border-y border-secscan-border ${selected ? "lg:grid-cols-[minmax(0,1.15fr)_minmax(400px,0.85fr)]" : "grid-cols-1"} lg:h-[650px]`}>
+          <div className="min-w-0 overflow-auto" data-testid="catalog-list">
+            <table className="min-w-[720px] w-full border-collapse text-left text-sm" aria-label="진단 기준 목록">
+              <thead className="sticky top-0 z-10 border-b border-secscan-border bg-secscan-surface-2 text-xs font-semibold text-secscan-muted">
+                <tr>
+                  <th scope="col" className="px-5 py-3">진단 항목 코드</th>
+                  <th scope="col" className="px-5 py-3">기준명</th>
+                  <th scope="col" className="px-5 py-3">분류</th>
+                  <th scope="col" className="px-5 py-3">구현 상태</th>
+                  <th scope="col" className="px-5 py-3">활성 여부</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-secscan-border">
+                {filtered.map((item) => (
+                  <tr
+                    key={item.kisa_code}
+                    tabIndex={0}
+                    onClick={() => selectItem(item)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        selectItem(item);
+                      }
+                    }}
+                    className={`cursor-pointer transition-colors hover:bg-secscan-surface-2 focus-visible:bg-secscan-surface-2 ${selected?.kisa_code === item.kisa_code ? "bg-violet-500/10" : ""}`}
+                  >
+                    <td className="whitespace-nowrap px-5 py-4 font-medium text-secscan-muted">{item.kisa_code}</td>
+                    <td className="max-w-xs px-5 py-4 font-semibold text-secscan-foreground"><span className="block break-words">{item.name}</span></td>
+                    <td className="max-w-40 px-5 py-4 text-secscan-muted"><span className="block break-words">{item.category}</span></td>
+                    <td className="whitespace-nowrap px-5 py-4"><span className={`secscan-status-badge ${implementationStatusClass(item.implementation_status)}`}>{item.implementation_status}</span></td>
+                    <td className="whitespace-nowrap px-5 py-4"><span className={`inline-flex items-center gap-1.5 text-xs ${item.active ? "text-secscan-foreground" : "text-secscan-muted"}`}><span className={`h-1.5 w-1.5 rounded-full ${item.active ? "bg-secscan-cyan" : "bg-secscan-muted"}`} />{item.active ? "활성" : "비활성"}</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
 
           {selected && (
             <aside className="min-w-0 overflow-y-auto border-t border-secscan-border bg-secscan-surface p-5 lg:border-l lg:border-t-0 lg:p-6" aria-label="카탈로그 상세">
               <div className="flex min-w-0 items-start justify-between gap-4">
                 <div className="min-w-0"><p className="text-sm font-semibold text-secscan-muted">{selected.kisa_code}</p><h2 className="mt-2 break-words text-2xl font-bold tracking-tight">{selected.name}</h2></div>
-                <div className="flex shrink-0 gap-2">{admin && <button type="button" onClick={() => setEditing((value) => !value)} className="secscan-secondary-button px-3 py-1.5 text-xs">{editing ? "취소" : "수정"}</button>}<button type="button" onClick={() => setSelected(null)} className="secscan-secondary-button px-3 py-1.5 text-xs">닫기</button></div>
+                <button type="button" onClick={closeDetail} aria-label="카탈로그 상세 닫기" title="닫기" className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded border border-secscan-border text-xl leading-none text-secscan-muted hover:border-secscan-violet hover:text-secscan-foreground">×</button>
               </div>
 
-              {editing && admin ? (
+              {admin && draft ? (
                 <form className="mt-6 space-y-4" onSubmit={save}>
-                  <label className="block text-sm font-medium">설명<textarea name="description" defaultValue={selected.description ?? ""} className="mt-2" /></label>
-                  <label className="block text-sm font-medium">참조 정보<input name="reference_info" defaultValue={selected.reference_info ?? ""} className="mt-2" /></label>
-                  <label className="flex items-center gap-2 text-sm font-medium"><input name="active" type="checkbox" defaultChecked={selected.active} />활성</label>
-                  <label className="block text-sm font-medium">기본 심각도<select name="default_severity" defaultValue={selected.default_severity} className="mt-2">{["CRITICAL", "HIGH", "MEDIUM", "LOW", "UNKNOWN"].map((value) => <option key={value}>{value}</option>)}</select></label>
-                  <label className="block text-sm font-medium">구현 상태<select name="implementation_status" defaultValue={selected.implementation_status} className="mt-2">{["지원", "부분 지원", "미지원"].map((value) => <option key={value}>{value}</option>)}</select></label>
-                  <label className="block text-sm font-medium">조치 권고<textarea name="recommendation" defaultValue={selected.recommendation ?? ""} className="mt-2" /></label>
-                  <button type="submit" className="secscan-primary-button">저장</button>
+                  <label className="block text-sm font-medium">진단 항목 코드<input value={selected.kisa_code} readOnly aria-readonly="true" className="mt-2 text-secscan-muted" /></label>
+                  <label className="block text-sm font-medium">기준 식별자<input value={selected.criterion_id ?? "-"} readOnly aria-readonly="true" className="mt-2 text-secscan-muted" /></label>
+                  <label className="block text-sm font-medium">기준명<input value={selected.name} readOnly aria-readonly="true" className="mt-2 text-secscan-muted" /></label>
+                  <label className="block text-sm font-medium">설명<textarea value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} className="mt-2" /></label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <label className="block text-sm font-medium">분류<input value={selected.category} readOnly aria-readonly="true" className="mt-2 text-secscan-muted" /></label>
+                    <label className="block text-sm font-medium">항목 번호<input value={selected.item_number ?? "-"} readOnly aria-readonly="true" className="mt-2 text-secscan-muted" /></label>
+                  </div>
+                  <label className="block text-sm font-medium">참조 정보 링크<input value={draft.reference_info} onChange={(event) => setDraft({ ...draft, reference_info: event.target.value })} className="mt-2" /></label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <label className="block text-sm font-medium">기본 심각도<select value={draft.default_severity} onChange={(event) => setDraft({ ...draft, default_severity: event.target.value })} className="mt-2">{["CRITICAL", "HIGH", "MEDIUM", "LOW", "UNKNOWN"].map((value) => <option key={value}>{value}</option>)}</select></label>
+                    <label className="block text-sm font-medium">구현 상태<select value={draft.implementation_status} onChange={(event) => setDraft({ ...draft, implementation_status: event.target.value as CatalogItem["implementation_status"] })} className="mt-2">{["지원", "부분 지원", "미지원"].map((value) => <option key={value}>{value}</option>)}</select></label>
+                  </div>
+                  <label className="flex cursor-pointer items-center justify-between rounded border border-secscan-border px-3 py-2.5 text-sm font-medium">활성 여부<input aria-label="활성 여부" type="checkbox" checked={draft.active} onChange={(event) => setDraft({ ...draft, active: event.target.checked })} className="peer sr-only" /><span className="ml-auto mr-3 text-xs text-secscan-muted">{draft.active ? "활성" : "비활성"}</span><span aria-hidden="true" className="relative h-5 w-9 rounded-full bg-secscan-border transition-colors peer-checked:bg-secscan-violet after:absolute after:left-0.5 after:top-0.5 after:h-4 after:w-4 after:rounded-full after:bg-white after:transition-transform peer-checked:after:translate-x-4 peer-focus-visible:ring-2 peer-focus-visible:ring-secscan-violet" /></label>
+                  <label className="block text-sm font-medium">조치 권고<textarea value={draft.recommendation} onChange={(event) => setDraft({ ...draft, recommendation: event.target.value })} className="mt-2" /></label>
+                  <button type="submit" disabled={!hasChanges} className="secscan-primary-button w-full disabled:cursor-not-allowed disabled:opacity-45">변경 사항 저장</button>
                 </form>
               ) : (
                 <dl className="mt-6 grid min-w-0 gap-4 text-sm">
-                  <div className="secscan-panel p-3"><dt className="text-xs font-semibold text-secscan-muted">분류 / 항목 번호</dt><dd className="mt-1 break-words">{selected.category} / {selected.item_number ?? "-"}</dd></div>
                   <div className="secscan-panel p-3"><dt className="text-xs font-semibold text-secscan-muted">기준 식별자</dt><dd className="mt-1 break-words">{selected.criterion_id ?? "-"}</dd></div>
+                  <div className="secscan-panel p-3"><dt className="text-xs font-semibold text-secscan-muted">분류 / 항목 번호</dt><dd className="mt-1 break-words">{selected.category} / {selected.item_number ?? "-"}</dd></div>
                   <div className="secscan-panel p-3"><dt className="text-xs font-semibold text-secscan-muted">설명</dt><dd className="mt-1 break-words">{selected.description ?? "-"}</dd></div>
                   <div className="secscan-panel p-3"><dt className="text-xs font-semibold text-secscan-muted">참조 정보</dt><dd className="mt-1 break-words">{selected.reference_info ?? "-"}</dd></div>
                   <div className="secscan-panel p-3"><dt className="text-xs font-semibold text-secscan-muted">기본 심각도 / 구현 상태</dt><dd className="mt-1 break-words">{selected.default_severity} / {selected.implementation_status}</dd></div>
@@ -165,7 +276,7 @@ export default function CatalogPage() {
       )}
 
       {createOpen && admin && (
-        <ActionDrawer title="새 진단 기준" onClose={() => setCreateOpen(false)} footer={<button form="catalog-create" type="submit" className="secscan-primary-button w-full">등록</button>}>
+        <ActionDrawer title="진단 기준 등록" onClose={() => setCreateOpen(false)} footer={<button form="catalog-create" type="submit" className="secscan-primary-button w-full">등록</button>}>
           <form id="catalog-create" onSubmit={submitCreate} className="space-y-4">
             {([ ["kisa_code", "KISA 코드", true], ["name", "명칭", true], ["category", "분류", true], ["default_severity", "기본 심각도", true], ["description", "설명", false], ["criterion_id", "기준 식별자", false], ["item_number", "항목 번호", false], ["reference_info", "참조 정보", false] ] as const).map(([key, label, required]) => (
               <label key={key} className="block text-sm font-medium">{label}
