@@ -536,7 +536,9 @@ def test_successful_upload_does_not_create_analysis(upload_client, db_session):
 # ---------- Startup sweep ----------
 
 
-def test_startup_sweep_removes_stale_and_keeps_fresh_and_referenced(tmp_path):
+def test_startup_sweep_removes_stale_keeps_referenced_and_ignores_legacy_locations(
+    tmp_path,
+):
     import os
     import time
     from unittest.mock import MagicMock, patch
@@ -571,17 +573,24 @@ def test_startup_sweep_removes_stale_and_keeps_fresh_and_referenced(tmp_path):
 
     mock_db = MagicMock()
     mock_db.query.return_value.filter.return_value.all.return_value = [
-        (source_location,)
+        (source_location,),
+        ("/legacy/current-source",),
     ]
 
     with (
         patch("app.main.get_source_workspace", return_value=workspace),
         patch("app.main.SessionLocal", return_value=mock_db),
+        patch("app.main.logger.warning") as warning,
     ):
-        with TestClient(app):
-            pass
+        from app.main import recover_interrupted_analyses_and_sweep_stale_workspaces
+
+        recover_interrupted_analyses_and_sweep_stale_workspaces()
 
     assert not stale_staging.exists()
     assert not unreferenced_dir.exists()
     assert referenced_dir.exists()
     assert fresh_staging.exists()
+    warning.assert_any_call(
+        "Startup sweep ignored %d unmanaged project source location(s)",
+        1,
+    )

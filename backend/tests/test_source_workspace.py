@@ -78,6 +78,28 @@ def test_cleanup_removes_only_stale_unreferenced_staging_and_sources(tmp_path):
     assert fresh_staging.is_dir()
 
 
+def test_cleanup_ignores_unmanaged_current_source_locations(tmp_path):
+    workspace = SourceWorkspace(tmp_path / "storage")
+    with workspace.staging_directory() as kept_staging:
+        (kept_staging / "keep.py").write_text("keep")
+        kept_location = workspace.promote_staging_directory(7, kept_staging)
+    with workspace.staging_directory() as stale_staging:
+        (stale_staging / "stale.py").write_text("stale")
+        stale_location = workspace.promote_staging_directory(7, stale_staging)
+
+    old_time = (datetime.now(timezone.utc) - timedelta(days=2)).timestamp()
+    os.utime(workspace.resolve_source_location(stale_location), (old_time, old_time))
+
+    removed_sources = workspace.cleanup_stale_unreferenced_source_directories(
+        [kept_location, "/legacy/current-source"], timedelta(days=1)
+    )
+
+    assert removed_sources == [stale_location]
+    assert workspace.resolve_source_location(kept_location).is_dir()
+    assert not workspace.resolve_source_location(stale_location).exists()
+    assert not workspace.is_managed_source_location("/legacy/current-source")
+
+
 def test_workspace_rejects_unmanaged_staging_and_source_locations(tmp_path):
     workspace = SourceWorkspace(tmp_path / "storage")
     unmanaged = tmp_path / "unmanaged"

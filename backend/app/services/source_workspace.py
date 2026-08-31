@@ -123,6 +123,7 @@ class SourceWorkspace:
         referenced = {
             "/".join(self._source_location_parts(location))
             for location in current_source_locations
+            if self.is_managed_source_location(location)
         }
         cutoff = _cutoff(retention, now)
         removed: list[str] = []
@@ -145,6 +146,14 @@ class SourceWorkspace:
                 shutil.rmtree(source_directory)
                 removed.append(location)
         return removed
+
+    def is_managed_source_location(self, source_location: str) -> bool:
+        """현재 작업공간이 발급한 불투명 소스 위치인지 확인한다."""
+        try:
+            self._source_location_parts(source_location)
+        except ValueError:
+            return False
+        return True
 
     def _cleanup_stale_direct_children(
         self, parent: Path, retention: timedelta, *, now: datetime | None

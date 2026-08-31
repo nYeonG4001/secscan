@@ -72,11 +72,20 @@ def recover_interrupted_analyses_and_sweep_stale_workspaces() -> None:
     removed_sources = workspace.cleanup_stale_unreferenced_source_directories(
         current_locations, retention
     )
+    unmanaged_location_count = sum(
+        not workspace.is_managed_source_location(location)
+        for location in current_locations
+    )
     if removed_staging or removed_sources:
         logger.info(
             "Startup sweep removed %d staging and %d unreferenced source directories",
             len(removed_staging),
             len(removed_sources),
+        )
+    if unmanaged_location_count:
+        logger.warning(
+            "Startup sweep ignored %d unmanaged project source location(s)",
+            unmanaged_location_count,
         )
     if interrupted:
         logger.warning("Startup marked %d interrupted analyses as failed", interrupted)
