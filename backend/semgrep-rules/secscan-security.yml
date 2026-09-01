@@ -44,3 +44,135 @@ rules:
           - focus-metavariable: $PARAM
     pattern-sinks:
       - pattern: pickle.loads($DATA)
+
+  - id: secscan.java.jdbc-statement-sql
+    languages: [java]
+    severity: ERROR
+    message: 외부 입력을 SQL 문자열로 실행하지 말고 PreparedStatement 바인딩을 사용하세요.
+    metadata:
+      secscan_basis: CWE-89, OWASP A03:2021
+    mode: taint
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: |
+                  public $RET $METHOD(..., String $PARAM, ...) { ... }
+              - pattern: |
+                  protected $RET $METHOD(..., String $PARAM, ...) { ... }
+              - pattern: |
+                  private $RET $METHOD(..., String $PARAM, ...) { ... }
+              - pattern: |
+                  static $RET $METHOD(..., String $PARAM, ...) { ... }
+              - pattern: |
+                  public static $RET $METHOD(..., String $PARAM, ...) { ... }
+              - pattern: |
+                  protected static $RET $METHOD(..., String $PARAM, ...) { ... }
+              - pattern: |
+                  private static $RET $METHOD(..., String $PARAM, ...) { ... }
+              - pattern: |
+                  $RET $METHOD(..., String $PARAM, ...) { ... }
+          - focus-metavariable: $PARAM
+    pattern-sinks:
+      - pattern-either:
+          - pattern: $STATEMENT.executeQuery($SQL)
+          - pattern: $STATEMENT.executeUpdate($SQL)
+
+  - id: secscan.javascript.dom-innerhtml
+    languages: [javascript]
+    severity: ERROR
+    message: 신뢰할 수 없는 값을 innerHTML에 직접 대입하지 마세요.
+    metadata:
+      secscan_basis: CWE-79, OWASP A03:2021
+    mode: taint
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: |
+                  function $FUNC(..., $PARAM, ...) { ... }
+              - pattern: |
+                  function ($PARAM) { ... }
+              - pattern: |
+                  function ($PARAM, ...) { ... }
+              - pattern: |
+                  function ($FIRST, ..., $PARAM, ...) { ... }
+              - pattern: |
+                  async function $FUNC(..., $PARAM, ...) { ... }
+              - pattern: |
+                  $FUNC = async function ($PARAM, ...) { ... }
+              - pattern: |
+                  $FUNC = async function ($FIRST, ..., $PARAM, ...) { ... }
+              - pattern: |
+                  ($PARAM) => { ... }
+              - pattern: |
+                  ($PARAM, ...) => { ... }
+              - pattern: |
+                  ($FIRST, ..., $PARAM, ...) => { ... }
+              - pattern: |
+                  $PARAM => { ... }
+              - pattern: |
+                  ($PARAM) => $BODY
+              - pattern: |
+                  ($PARAM, ...) => $BODY
+              - pattern: |
+                  ($FIRST, ..., $PARAM, ...) => $BODY
+              - pattern: |
+                  $PARAM => $BODY
+              - pattern: |
+                  async ($PARAM) => { ... }
+              - pattern: |
+                  async ($PARAM, ...) => { ... }
+              - pattern: |
+                  async ($FIRST, ..., $PARAM, ...) => { ... }
+              - pattern: |
+                  async $PARAM => { ... }
+              - pattern: |
+                  async ($PARAM) => $BODY
+              - pattern: |
+                  async ($PARAM, ...) => $BODY
+              - pattern: |
+                  async ($FIRST, ..., $PARAM, ...) => $BODY
+              - pattern: |
+                  async $PARAM => $BODY
+              - pattern: |
+                  class $CLASS {
+                    ...
+                    $METHOD(..., $PARAM, ...) { ... }
+                    ...
+                  }
+              - pattern: |
+                  class $CLASS {
+                    ...
+                    async $METHOD(..., $PARAM, ...) { ... }
+                    ...
+                  }
+              - pattern: |
+                  {
+                    ...
+                    $METHOD(..., $PARAM, ...) { ... }
+                    ...
+                  }
+          - focus-metavariable: $PARAM
+    pattern-sinks:
+      - patterns:
+          - pattern: $ELEMENT.innerHTML = $DATA
+          - focus-metavariable: $DATA
+
+  - id: secscan.python.open-user-path
+    languages: [python]
+    severity: ERROR
+    message: 외부 입력 경로로 파일을 열지 말고 서버 관리 경로와 허용 목록을 사용하세요.
+    metadata:
+      secscan_basis: CWE-22, OWASP A01:2021
+    mode: taint
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: |
+                  def $FUNC(..., $PARAM, ...):
+                      ...
+              - pattern: |
+                  async def $FUNC(..., $PARAM, ...):
+                      ...
+          - focus-metavariable: $PARAM
+    pattern-sinks:
+      - pattern: open($PATH, ...)

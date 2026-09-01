@@ -186,11 +186,29 @@ KISA_RULE_MAPPING_SEED = [
         "engine_rule_id": "secscan.python.pickle-loads",
         "kisa_code": "KISA-043",
     },
+    {
+        "engine": "semgrep",
+        "engine_rule_id": "secscan.java.jdbc-statement-sql",
+        "kisa_code": "KISA-001",
+    },
+    {
+        "engine": "semgrep",
+        "engine_rule_id": "secscan.javascript.dom-innerhtml",
+        "kisa_code": "KISA-004",
+    },
+    {
+        "engine": "semgrep",
+        "engine_rule_id": "secscan.python.open-user-path",
+        "kisa_code": "KISA-003",
+    },
 ]
 
 KISA_RULE_MAPPING_IMPLEMENTATION_STATUS_UPDATES = {
+    "KISA-001": "부분 지원",
     "KISA-005": "부분 지원",
     "KISA-002": "부분 지원",
+    "KISA-003": "부분 지원",
+    "KISA-004": "부분 지원",
     "KISA-043": "부분 지원",
 }
 

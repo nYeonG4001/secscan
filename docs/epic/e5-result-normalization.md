@@ -99,15 +99,15 @@ E5는 E4가 실행한 Semgrep JSON 결과를 엔진 독립적인 진단 결과�
   - 고정 CLI, 규칙 revision, 매핑 데이터, fixture는 함께 버전 관리한다.
   - `mode: taint`의 `pattern-sources` 표현과 취약 fixture의 외부 입력 표현은 같은 변경에서 함께 검토한다.
   - 실제 서비스 규칙이 모두 KISA에 매핑되어도, 미매핑 결과 보존은 테스트 전용 합성 Semgrep JSON fixture로 검증한다.
-- 테스트·증거: `backend/tests/test_e5_result_normalization.py`가 Java, JavaScript, Python의 실제 taint 취약 fixture 각 1건(KISA-005/002/043, HIGH, UNKNOWN)과 같은 sink의 정상 fixture 미탐지를 검증했다.
+- 테스트·증거: 2026-08-29 기준 `backend/tests/test_e5_result_normalization.py`가 Java, JavaScript, Python의 초기 실제 taint 취약 fixture(KISA-005/002/043, HIGH, UNKNOWN)와 같은 sink의 정상 fixture 미탐지를 검증했다. ADR-039 확장 증거는 E5-10을 따른다.
 
 ## E5-10 자체 규칙 커버리지 확장
 
-- 상태: 결정 완료, 구현 전 (2026-08-30)
+- 상태: 구현·로컬 검증 완료, Ubuntu CI 확인 대기 (2026-09-01)
 - 요구사항 매핑: SFR-010, SFR-011, SFR-014, TST-004, TST-005, QLT-002, QLT-003, SEC-010
 - 결정과 근거: 초기 세 자체 규칙은 실제 탐지 범위를 정직하게 보여 주지만 카탈로그 49개 가운데 `부분 지원` 항목이 세 개뿐이다. 공식 또는 제3자 규칙을 가져오지 않고, KISA/CWE/OWASP 공개 기준을 근거로 독자 작성한 Java SQL 삽입, JavaScript DOM XSS, Python `open()` 경로 조작 규칙을 각각 한 개씩 추가한다. 모든 규칙은 제한된 source-to-sink 문법만 다루므로 `지원`으로 승격하지 않고 검증 뒤 `부분 지원`으로 표시한다. 자세한 범위와 제외 항목은 ADR-039를 따른다.
 - 완료 조건:
-  - `secscan.java.jdbc-statement-sql`은 Java `String` 매개변수에서 `executeQuery(String)` 또는 `executeUpdate(String)`으로 흐르는 SQL을 탐지하고 KISA-001에 매핑한다. bare `execute(String)`, `executeUpdate(String, int)`, PreparedStatement, ORM/JPA는 탐지하지 않는다.
+  - `secscan.java.jdbc-statement-sql`은 Java `String` 매개변수에서 `executeQuery(String)` 또는 `executeUpdate(String)`으로 흐르는 SQL을 탐지하고 KISA-001에 매핑한다. 메서드명 기반 규칙이므로 한 인자를 받는 동명 `PreparedStatement` 호출도 범위에 포함하며, 바인딩 뒤 인자 없이 호출하는 `PreparedStatement.executeQuery()`/`executeUpdate()`, bare `execute(String)`, `executeUpdate(String, int)`, ORM/JPA는 탐지하지 않는다.
   - `secscan.javascript.dom-innerhtml`은 JavaScript 함수 매개변수에서 직접 `innerHTML =` 대입으로 흐르는 값을 탐지하고 KISA-004에 매핑한다. 복합 대입, React·템플릿·SSR·`insertAdjacentHTML`은 탐지하지 않는다.
   - `secscan.python.open-user-path`는 Python 함수 매개변수에서 내장 `open()`으로 흐르는 경로를 탐지하고 KISA-003에 매핑한다. `Path.open`, `os.open`, `shutil`, 압축 해제와 업로드 경로 검증은 탐지하지 않는다.
   - 각 신규 규칙은 `RULES_PROVENANCE.md`에 규칙 ID, KISA/CWE/OWASP 근거, source·sink, 타입·이름 기반 매칭 한계를 기록한다.
@@ -115,14 +115,14 @@ E5는 E4가 실행한 Semgrep JSON 결과를 엔진 독립적인 진단 결과�
   - 각 신규 정상 fixture는 검증 대상 규칙의 미탐지를 확인한다. Java PreparedStatement와 Python 고정 경로 fixture는 모든 안전화 기법을 인증하는 테스트가 아니라, 이번 sink 형태가 없음을 검증하는 범위로 설명한다.
   - 여섯 매핑 KISA 항목(KISA-001/002/003/004/005/043)만 `부분 지원`이고, 나머지 항목은 구현 검증 전까지 `미지원`으로 유지한다.
   - 신규 규칙·매핑·fixture의 집중 테스트와 전용 PostgreSQL 전체 백엔드 pytest, Ruff, `git diff --check`를 통과한다.
-- 테스트·증거: 구현 후 `backend/tests/test_e5_result_normalization.py`의 신규 fixture·매핑 테스트, 실제 Semgrep CLI 출력, 전용 PostgreSQL 전체 회귀 결과를 기록한다.
+- 테스트·증거: Semgrep OSS 1.95.0을 고정 YAML과 `--no-rewrite-rule-ids`로 직접 실행해 세 규칙의 취약 fixture에서 각각 접두어 없는 기대 `check_id` 한 건을 확인했고, 세 정상 fixture에서는 해당 규칙을 확인하지 못했다. Java는 package-private `executeQuery(String)`과 private static `executeUpdate(String)`, JavaScript는 선언·익명·async 함수, 블록·표현식 본문 화살표 함수(단일·다중·괄호 없음), async 클래스·동기 객체 메서드, Python은 async 함수를 함께 검증한다. async 객체 축약 메서드는 Semgrep OSS 1.95.0 규칙 패턴 문법 한계로 제외했다. 변경하지 않은 리소스 래퍼를 포함한 전용 PostgreSQL Docker 환경에서 `pytest -q tests/test_e5_result_normalization.py` 32개와 `ruff check app tests`를 통과했다. 최종 GitHub Actions Ubuntu의 필터 없는 `pytest -q` 확인은 push/PR 금지 범위 밖이므로 사람 검토·병합 전에 남아 있다.
 
 ## 구현·검증 결과
 
 - E5-01~06, E5-09: `semgrep_parser.py`와 `finding_normalizer.py`가 Semgrep 결과를 정규화하고, KISA 매핑·스냅샷·지문 중복 제거를 하나의 DB 트랜잭션으로 저장한다.
 - E5-07: 결과 조회 API 자체는 E1-07에서 구현돼 있으며, E5는 해당 응답 스키마에 `engine_rule_id`와 역할별 원본 결과 경계를 반영했다. 새 조회 엔드포인트는 만들지 않았다.
 - E5-08: 결과 목록·상세 화면은 `E6-03`, `E6-04` 범위로 이관한다.
-- 검증: 전용 PostgreSQL에서 Alembic `upgrade head → downgrade 0007 → upgrade head`, E5 집중 pytest 20개, 전체 backend pytest 208개, `ruff check app tests`, `git diff --check`을 통과했다.
+- 2026-08-29 기준선 검증: 전용 PostgreSQL에서 Alembic `upgrade head → downgrade 0007 → upgrade head`, E5 집중 pytest 20개, 전체 backend pytest 208개, `ruff check app tests`, `git diff --check`을 통과했다. ADR-039 확장의 현재 로컬 증거는 E5-10을 따른다.
 
 ## 이후 작업
 

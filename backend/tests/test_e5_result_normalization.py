@@ -103,7 +103,36 @@ def test_deduplicates_first_result_per_analysis_but_not_across_analyses(db_sessi
 def test_mapping_constraints_and_seed_status(db_session):
     seed_kisa_catalog(db_session)
     seed_kisa_rule_mappings(db_session)
-    assert db_session.get(KisaCatalog, "KISA-005").implementation_status == "부분 지원"
+    # 이 집합은 현재 revision에서 검증된 매핑·부분 지원 상태이며 규칙 수 상한이 아니다.
+    # 새 규칙이 fixture와 CI 게이트를 통과하면 해당 기대값을 함께 확장한다.
+    partial_support_codes = {
+        "KISA-001",
+        "KISA-002",
+        "KISA-003",
+        "KISA-004",
+        "KISA-005",
+        "KISA-043",
+    }
+    assert {
+        (mapping.engine_rule_id, mapping.kisa_code)
+        for mapping in db_session.query(KisaRuleMapping).all()
+    } == {
+        ("secscan.java.runtime-exec", "KISA-005"),
+        ("secscan.javascript.eval", "KISA-002"),
+        ("secscan.python.pickle-loads", "KISA-043"),
+        ("secscan.java.jdbc-statement-sql", "KISA-001"),
+        ("secscan.javascript.dom-innerhtml", "KISA-004"),
+        ("secscan.python.open-user-path", "KISA-003"),
+    }
+    catalog_items = db_session.query(KisaCatalog).all()
+    assert {
+        item.kisa_code for item in catalog_items if item.implementation_status == "부분 지원"
+    } == partial_support_codes
+    assert all(
+        item.implementation_status == "미지원"
+        for item in catalog_items
+        if item.kisa_code not in partial_support_codes
+    )
     db_session.add(KisaRuleMapping(engine="semgrep", engine_rule_id="extra", kisa_code="KISA-005"))
     db_session.commit()
     db_session.add(KisaRuleMapping(engine="semgrep", engine_rule_id="extra", kisa_code="KISA-002"))
@@ -172,6 +201,51 @@ def test_catalog_schemas_do_not_expose_legacy_semgrep_rule_id():
         ("CommandInjection.java", "secscan.java.runtime-exec", "KISA-005"),
         ("eval_injection.js", "secscan.javascript.eval", "KISA-002"),
         ("pickle_injection.py", "secscan.python.pickle-loads", "KISA-043"),
+        ("JdbcStatementSql.java", "secscan.java.jdbc-statement-sql", "KISA-001"),
+        ("JdbcStatementUpdateSql.java", "secscan.java.jdbc-statement-sql", "KISA-001"),
+        ("dom_innerhtml.js", "secscan.javascript.dom-innerhtml", "KISA-004"),
+        ("dom_innerhtml_arrow.js", "secscan.javascript.dom-innerhtml", "KISA-004"),
+        (
+            "dom_innerhtml_function_expression.js",
+            "secscan.javascript.dom-innerhtml",
+            "KISA-004",
+        ),
+        ("dom_innerhtml_async_function.js", "secscan.javascript.dom-innerhtml", "KISA-004"),
+        ("dom_innerhtml_async_arrow.js", "secscan.javascript.dom-innerhtml", "KISA-004"),
+        ("dom_innerhtml_class_method.js", "secscan.javascript.dom-innerhtml", "KISA-004"),
+        ("dom_innerhtml_object_method.js", "secscan.javascript.dom-innerhtml", "KISA-004"),
+        (
+            "dom_innerhtml_function_expression_multi.js",
+            "secscan.javascript.dom-innerhtml",
+            "KISA-004",
+        ),
+        ("dom_innerhtml_arrow_multi.js", "secscan.javascript.dom-innerhtml", "KISA-004"),
+        (
+            "dom_innerhtml_arrow_unparenthesized.js",
+            "secscan.javascript.dom-innerhtml",
+            "KISA-004",
+        ),
+        (
+            "dom_innerhtml_async_function_expression.js",
+            "secscan.javascript.dom-innerhtml",
+            "KISA-004",
+        ),
+        (
+            "dom_innerhtml_arrow_expression.js",
+            "secscan.javascript.dom-innerhtml",
+            "KISA-004",
+        ),
+        (
+            "dom_innerhtml_async_arrow_expression.js",
+            "secscan.javascript.dom-innerhtml",
+            "KISA-004",
+        ),
+        (
+            "dom_innerhtml_async_class_method.js",
+            "secscan.javascript.dom-innerhtml",
+            "KISA-004",
+        ),
+        ("open_user_path.py", "secscan.python.open-user-path", "KISA-003"),
     ],
 )
 def test_real_semgrep_vulnerable_fixtures_normalize_to_mapped_findings(
@@ -187,6 +261,7 @@ def test_real_semgrep_vulnerable_fixtures_normalize_to_mapped_findings(
     analysis = _analysis(db_session)
 
     result = SemgrepRunner(timeout_seconds=30).run(tmp_path)
+    assert [item["check_id"] for item in result.results] == [rule_id]
     persist_normalized_findings(
         db_session,
         analysis.id,
@@ -210,6 +285,9 @@ def test_real_semgrep_vulnerable_fixtures_normalize_to_mapped_findings(
         ("SafeCommand.java", "secscan.java.runtime-exec"),
         ("safe_eval.js", "secscan.javascript.eval"),
         ("safe_pickle.py", "secscan.python.pickle-loads"),
+        ("SafeJdbcStatementSql.java", "secscan.java.jdbc-statement-sql"),
+        ("safe_dom_innerhtml.js", "secscan.javascript.dom-innerhtml"),
+        ("safe_open_user_path.py", "secscan.python.open-user-path"),
     ],
 )
 def test_real_semgrep_safe_fixtures_do_not_trigger_the_tested_rule(tmp_path, fixture_name, rule_id):
