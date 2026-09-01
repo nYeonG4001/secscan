@@ -157,3 +157,68 @@ KISA-043 Java 역직렬화는 타입·스트림 형태의 모호성이 크고, K
 - `docs/epic/e5-result-normalization.md`
 - `docs/epic/epic-sast-mvp.md`
 - `docs/requirements-matrix.md`
+
+## E7 최종 검증 실행 기록 (2026-09-01)
+
+### 실행 기준
+
+- 대상 revision: `269738bfa2e5fbd64db3de78d1c660c6bedd2ee2`
+  (`feat(e5): Python 자체 규칙 확장 검증 보완`)
+- 실행 환경: 읽기 전용 backend 소스를 마운트한 Linux Docker(Python 3.12),
+  PostgreSQL 16 전용 `_test` 데이터베이스, Semgrep OSS 1.95.0.
+- 검증 명령: Linux 컨테이너에서 `pytest -q -p no:cacheprovider`를 실행했다.
+  GitHub Actions Ubuntu runner 자체의 실행 결과는 아니므로 이 기록으로 GitHub CI 통과를
+  대체하지 않는다.
+
+### 부분 지원 KISA 규칙 fixture 판정
+
+`test_real_semgrep_vulnerable_fixtures_normalize_to_mapped_findings`는 각 취약 fixture에서
+예상 `check_id` 정확히 1건, 정규화된 Finding 1건, 기대 KISA 코드, `HIGH/UNKNOWN`을
+검증한다. `test_real_semgrep_safe_fixtures_do_not_trigger_the_tested_rule`는 해당 대상
+규칙이 정상 fixture에서 나오지 않음을 검증한다.
+
+| KISA 코드 | 검증한 엔진 규칙 | TP | TN | FP | FN | 판정 보류 |
+|---|---|---:|---:|---:|---:|---:|
+| KISA-001 | `secscan.java.jdbc-statement-sql` | 2 | 1 | 0 | 0 | 0 |
+| KISA-002 | `secscan.javascript.eval`, `secscan.python.eval`, `secscan.python.exec` | 3 | 3 | 0 | 0 | 0 |
+| KISA-003 | `secscan.python.open-user-path` | 1 | 1 | 0 | 0 | 0 |
+| KISA-004 | `secscan.javascript.dom-innerhtml` | 14 | 1 | 0 | 0 | 0 |
+| KISA-005 | `secscan.java.runtime-exec`, `secscan.python.os-system` | 2 | 5 | 0 | 0 | 0 |
+| KISA-043 | `secscan.python.pickle-loads` | 1 | 1 | 0 | 0 | 0 |
+| 합계 | 현재 `부분 지원` 6개 KISA 코드 | **23** | **12** | **0** | **0** | **0** |
+
+- KISA 연결 오류는 0건이다. 같은 테스트의 시드 검증은 위 6개 코드만 `부분 지원`이고
+  나머지 카탈로그 항목은 `미지원`임을 확인한다.
+- TP/TN/FP/FN은 선언한 source-to-sink 형태와 이 35개 제어 fixture에 한정한 수치다.
+  범위 밖 API·프레임워크·sanitizer 변형과 실제 서비스 코드 표본은 이번 실행에 기대값이
+  없으므로 정확도 수치에 포함하지 않았으며, 전수 KISA-49 탐지·커버리지를 뜻하지 않는다.
+- 기대값 근거가 없는 fixture는 0건이지만, 23개 TP Finding의 탐지 신뢰도는 ADR-032에 따라
+  모두 `UNKNOWN`이다. 이 값은 TP 판정과 별개이며, 독립 표본을 통한 정밀도·재현율 평가는
+  여전히 미확인이다.
+
+### 보호 기능과 전체 회귀
+
+| 검증 영역 | 실행된 백엔드 테스트 | 결과 |
+|---|---:|---|
+| 인증·역할 권한 | 23 (`test_auth_api.py` 18, `test_auth_authorization.py` 5) | 통과 |
+| 프로젝트 접근·IDOR | 10 (`test_project_access_api.py` 5, `test_project_resource_access.py` 5) | 통과 |
+| ZIP 보안·작업영역 | 46 (`test_source_archive.py` 18, `test_source_upload_api.py` 21, `test_source_workspace.py` 7) | 통과 |
+| 분석 상태·복구 | 20 (`test_analysis_api.py` 3, `test_analysis_schema.py` 13, `test_analysis_execution.py` 3, `test_analysis_startup_recovery.py` 1) | 통과 |
+| 결과 접근·역할별 응답 | 14 (`test_api_contract.py` 9, `test_e6_findings_api.py` 5) | 통과 |
+| KISA 매핑·fixture | 41 (`test_e5_result_normalization.py`) | 통과 |
+
+- 전체 backend: **244 passed**, 경고 5건, 실패 0건 (139.56초).
+- frontend: ESLint 통과, TypeScript typecheck 통과, Vitest **44 passed** (4 files),
+  production build 통과. React Router v7 future-flag 경고만 관찰됐고 테스트 실패는 없었다.
+- macOS 네이티브 실행은 `RLIMIT_AS`로 실제 Semgrep fixture 35개가
+  `ANALYSIS_RESOURCE_LIMIT`로 실패했다. 이는 기존
+  `docs/troubleshooting/2026-09-01-e5-local-semgrep-sandbox-validation.md`의 환경 제한과
+  일치하며, 같은 revision의 Linux Docker 전체 backend 실행에서는 재현되지 않았다.
+
+### 남은 미확인 범위
+
+- Sparrow와 같은 입력을 비교하는 금요일 실측 평가는 이 SecScan 검증 실행에 포함하지 않았다.
+- GitHub Actions Ubuntu runner의 실제 job 결과와 외부·실서비스 표본에 대한 TP/FP/FN은
+  아직 이 문서의 실행 증거가 아니다.
+- 현재 결론은 6개 부분 지원 KISA 코드의 선언 범위 검증이며, KISA 49개 전체의 구현 또는
+  탐지 커버리지를 주장하지 않는다.

@@ -110,6 +110,28 @@ ADR-039·ADR-040의 자체 작성 Semgrep taint 규칙 여섯 개를 추가했�
 | SFR-015, SFR-016, SFR-017, DAR-006, SEC-003 | `backend/app/routers/findings.py`가 경량 목록 envelope, 심각도·매핑 상태·언어 필터, 50/100 페이지 경계와 안정 정렬을 제공한다. `AnalysisStatusPage.tsx`는 실제 `project_id`로 경로를 정규화하고 완료 결과를 같은 경로에 표시하며, `FindingsPage.tsx`는 독립 스크롤 분할 상세와 역할별 원본 결과 표시를 제공한다. | `backend/tests/test_e6_findings_api.py`, `backend/tests/test_api_contract.py`, `backend/tests/test_project_resource_access.py`, `frontend/src/pages/E6Pages.test.tsx` |
 | SFR-012, SFR-013, SFR-004, DAR-007 | `CatalogPage.tsx`는 클라이언트 검색·구현 상태 필터, 읽기 전용/ADMIN 수정 경계와 등록 Drawer를 제공한다. `ProjectsPage.tsx`, `ProjectDetailPage.tsx`는 ADMIN 전용 생성·수정 Drawer와 분석 이력을 제공한다. | `frontend/src/App.test.tsx`, `frontend/src/pages/E6Pages.test.tsx`, `npm run typecheck`, `npm run lint`, `npm test` 36개, `npm run build` |
 
+## E7 최종 실행 증거 (2026-09-01)
+
+아래는 revision `269738bfa2e5fbd64db3de78d1c660c6bedd2ee2`를 Linux Docker(Python 3.12,
+PostgreSQL 16 전용 `_test` DB, Semgrep OSS 1.95.0)에서 재실행한 증거다. GitHub Actions
+Ubuntu runner의 job 결과는 별도 증거로 남아야 하며, 이 실행으로 대체하지 않는다.
+
+| 관련 요구사항 | E7 실행 증거 | 검증 |
+|---|---|---|
+| TST-001, TST-002, SFR-001~003, SEC-001~004 | ADMIN/USER 로그인, 비활성 계정, 쿠키·CSRF, 관리자 API의 ADMIN 허용·USER 403·미인증 401과 DB 역할 기준을 재실행했다. | `test_auth_api.py` 18개 + `test_auth_authorization.py` 5개, 모두 통과 |
+| TST-003, SFR-005~006, SEC-005~006 | 접근 부여 전 404, 부여 후 조회, 해제 후 즉시 404와 프로젝트·분석·Finding IDOR 경계를 재실행했다. | `test_project_access_api.py` 5개 + `test_project_resource_access.py` 5개, 모두 통과 |
+| SFR-007, SEC-007~008 | ZIP Slip·절대/중복 경로·심볼릭 링크·크기·압축비 제한, 업로드 API 거부/허용, staging·source 작업영역 정리를 재실행했다. | `test_source_archive.py` 18개 + `test_source_upload_api.py` 21개 + `test_source_workspace.py` 7개, 모두 통과 |
+| TST-004, TST-008, SFR-008, SFR-015, SEC-009 | `PENDING → RUNNING → COMPLETED/FAILED`, 활성 작업 충돌, 실행 오류·복구, 역할별 실행 필드 경계를 재실행했다. | `test_analysis_api.py` 3개, `test_analysis_schema.py` 13개, `test_analysis_execution.py` 3개, `test_analysis_startup_recovery.py` 1개 및 전체 backend 회귀 통과 |
+| TST-005, SFR-010~011, SFR-014, QLT-002~004 | KISA-001/002/003/004/005/043의 23개 취약 fixture는 예상 규칙 ID·KISA 코드 Finding 1건으로 정규화됐고, 12개 정상 fixture는 대상 규칙을 탐지하지 않았다. 제어 fixture 기준 TP 23, TN 12, FP 0, FN 0, 판정 보류 0이며 모든 TP의 confidence는 `UNKNOWN`이다. | `test_e5_result_normalization.py` 41개, 모두 통과 |
+| TST-006, SFR-013 | 카탈로그 시드와 KISA 매핑 시드는 현재 6개 코드(KISA-001/002/003/004/005/043)만 `부분 지원`으로 유지함을 전체 회귀에서 재확인했다. 이는 KISA-49 전체 지원 또는 전수 탐지 근거가 아니다. | `test_catalog_schema.py`, `test_e5_result_normalization.py::test_mapping_constraints_and_seed_status`, 전체 backend 회귀 통과 |
+| TST-007, SFR-016~017, DAR-006 | Finding 목록·상세의 경량 응답, 필터·페이지네이션, ADMIN 원본 결과와 USER 비노출 경계를 재실행했다. | `test_api_contract.py` 9개 + `test_e6_findings_api.py` 5개, 모두 통과; frontend Vitest 44개 통과 |
+| 전체 회귀 | backend 전체와 frontend lint/typecheck/test/build를 실행했다. | backend **244 passed** (경고 5건), frontend ESLint·typecheck·build 통과 및 Vitest **44 passed** |
+
+macOS 네이티브에서 Semgrep fixture 35개가 `RLIMIT_AS`로 실패한 결과는 제품 회귀가 아니라
+기존 로컬 환경 제한으로 분류한다. 같은 revision의 Linux Docker 전체 backend 244개 통과로
+fixture·정규화 증거를 확보했지만, 외부 표본의 정확도와 GitHub Actions Ubuntu job 결과는
+여전히 별도 확인 대상이다.
+
 ## 등록 규칙
 
 - 새 구현을 시작할 때 관련 요구사항 행과 세부 작업의 상태를 함께 갱신한다.
