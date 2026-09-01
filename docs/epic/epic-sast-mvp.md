@@ -267,6 +267,11 @@ E1 작업 상세는 `docs/epic/e1-data-model.md`, E2 작업 상세는 `docs/epic
 
 ### E7. 보안·정확성 테스트 및 교육용 샘플
 
+금요일 외부 SAST 비교 평가는 `docs/epic/e7-sast-evaluation-plan.md`의 확정 규칙 범위,
+판정 기준과 증거 기록 방식을 따른다. 이 평가는 Sparrow와 SecScan의 전체 탐지력을 단정하는
+비교가 아니라, 같은 테스트 코드에서 SecScan의 정탐·오탐·미탐 및 KISA 매핑 결과를 확인하는
+검증 단계다.
+
 작업 번호:
 
 1. E7-01 인증과 역할 권한 테스트
