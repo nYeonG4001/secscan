@@ -153,6 +153,7 @@ KISA-043 Java 역직렬화는 타입·스트림 형태의 모호성이 크고, K
 - `docs/adr/032-finding-severity-confidence-normalization.md`
 - `docs/adr/036-language-fixture-priority.md`
 - `docs/adr/039-self-authored-rule-coverage-expansion.md`
+- `docs/adr/040-python-rule-extensions-for-existing-kisa-codes.md`
 - `docs/epic/e5-result-normalization.md`
 - `docs/epic/epic-sast-mvp.md`
 - `docs/requirements-matrix.md`
