@@ -123,6 +123,9 @@ def test_mapping_constraints_and_seed_status(db_session):
         ("secscan.java.jdbc-statement-sql", "KISA-001"),
         ("secscan.javascript.dom-innerhtml", "KISA-004"),
         ("secscan.python.open-user-path", "KISA-003"),
+        ("secscan.python.os-system", "KISA-005"),
+        ("secscan.python.eval", "KISA-002"),
+        ("secscan.python.exec", "KISA-002"),
     }
     catalog_items = db_session.query(KisaCatalog).all()
     assert {
@@ -246,6 +249,9 @@ def test_catalog_schemas_do_not_expose_legacy_semgrep_rule_id():
             "KISA-004",
         ),
         ("open_user_path.py", "secscan.python.open-user-path", "KISA-003"),
+        ("os_system_injection.py", "secscan.python.os-system", "KISA-005"),
+        ("eval_injection.py", "secscan.python.eval", "KISA-002"),
+        ("exec_injection.py", "secscan.python.exec", "KISA-002"),
     ],
 )
 def test_real_semgrep_vulnerable_fixtures_normalize_to_mapped_findings(
@@ -288,6 +294,12 @@ def test_real_semgrep_vulnerable_fixtures_normalize_to_mapped_findings(
         ("SafeJdbcStatementSql.java", "secscan.java.jdbc-statement-sql"),
         ("safe_dom_innerhtml.js", "secscan.javascript.dom-innerhtml"),
         ("safe_open_user_path.py", "secscan.python.open-user-path"),
+        ("safe_os_system.py", "secscan.python.os-system"),
+        ("safe_eval.py", "secscan.python.eval"),
+        ("safe_exec.py", "secscan.python.exec"),
+        ("safe_module_reassigned_os_system.py", "secscan.python.os-system"),
+        ("safe_local_reassigned_os_system.py", "secscan.python.os-system"),
+        ("safe_imported_os_module.py", "secscan.python.os-system"),
     ],
 )
 def test_real_semgrep_safe_fixtures_do_not_trigger_the_tested_rule(tmp_path, fixture_name, rule_id):

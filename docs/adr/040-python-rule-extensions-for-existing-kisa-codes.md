@@ -7,11 +7,11 @@
 | 규칙 ID | KISA 항목 | source → sink 범위 | 공개 근거 |
 |---|---|---|---|
 | `secscan.python.os-system` | KISA-005 운영체제 명령어 삽입 | 함수 매개변수 → `os.system($COMMAND)` | CWE-78, OWASP A03:2021 |
-| `secscan.python.eval` | KISA-002 코드 삽입 | 함수 매개변수 → 내장 `eval($CODE)` | CWE-95, OWASP A03:2021 |
-| `secscan.python.exec` | KISA-002 코드 삽입 | 함수 매개변수 → 내장 `exec($CODE)` | CWE-95, OWASP A03:2021 |
+| `secscan.python.eval` | KISA-002 코드 삽입 | 함수 매개변수 → `eval($CODE)` 이름 호출 | CWE-95, OWASP A03:2021 |
+| `secscan.python.exec` | KISA-002 코드 삽입 | 함수 매개변수 → `exec($CODE)` 이름 호출 | CWE-95, OWASP A03:2021 |
 
-- `os.system` 규칙은 `subprocess.run`, `subprocess.Popen`, `os.popen`, 셸 문자열 조합의 모든 변형, 로컬에서 재정의한 `os` 이름을 포함하지 않는다.
-- `eval`·`exec` 규칙은 bare builtin 호출만 포함한다. 로컬에서 `eval`·`exec` 이름을 재정의한 코드, sanitizer·허용 목록, 간접 호출과 framework별 입력 추적은 구분하지 않는다.
+- `os.system` 규칙은 `subprocess.run`, `subprocess.Popen`, `os.popen`, 셸 문자열 조합의 모든 변형을 포함하지 않는다. 이름 해석은 하지 않으므로 로컬에서 재정의한 `os` 이름은 구분하지 않는다.
+- `eval`·`exec` 규칙은 bare 이름 호출만 포함한다. 로컬에서 `eval`·`exec` 이름을 재정의한 코드, sanitizer·허용 목록, 간접 호출과 framework별 입력 추적은 구분하지 않는다.
 - 각 규칙은 취약 fixture에서 예상한 접두어 없는 `check_id` 정확히 한 건, 같은 sink의 고정값 정상 fixture에서 대상 규칙 0건을 확인한다. 이는 모든 안전한 변형을 증명하는 것이 아니라, 선언한 source-to-sink 형태의 최소 회귀 검증이다.
 - 매핑 시드는 `secscan.python.os-system → KISA-005`, `secscan.python.eval → KISA-002`, `secscan.python.exec → KISA-002`로 추가한다. KISA-005와 KISA-002는 이미 `부분 지원`이므로 카탈로그 구현 상태를 `지원`으로 올리거나 부분 지원 항목 수를 늘리지 않는다.
 - 규칙 YAML, `RULES_PROVENANCE.md`, 매핑 시드, fixture, E5 정규화 테스트, 요구사항 증거는 하나의 보안 구현 PR에서 함께 변경한다. 직접 Semgrep 실행과 GitHub Actions Ubuntu의 필터 없는 `pytest -q`가 모두 통과한 뒤에만 병합한다.

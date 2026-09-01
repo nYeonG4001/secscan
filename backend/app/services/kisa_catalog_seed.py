@@ -201,6 +201,21 @@ KISA_RULE_MAPPING_SEED = [
         "engine_rule_id": "secscan.python.open-user-path",
         "kisa_code": "KISA-003",
     },
+    {
+        "engine": "semgrep",
+        "engine_rule_id": "secscan.python.os-system",
+        "kisa_code": "KISA-005",
+    },
+    {
+        "engine": "semgrep",
+        "engine_rule_id": "secscan.python.eval",
+        "kisa_code": "KISA-002",
+    },
+    {
+        "engine": "semgrep",
+        "engine_rule_id": "secscan.python.exec",
+        "kisa_code": "KISA-002",
+    },
 ]
 
 KISA_RULE_MAPPING_IMPLEMENTATION_STATUS_UPDATES = {
