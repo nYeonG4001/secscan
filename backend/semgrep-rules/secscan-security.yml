@@ -176,3 +176,55 @@ rules:
           - focus-metavariable: $PARAM
     pattern-sinks:
       - pattern: open($PATH, ...)
+
+  - id: secscan.python.os-system
+    languages: [python]
+    severity: ERROR
+    message: 외부 입력을 os.system으로 실행하지 말고 허용 목록 기반 명령 실행을 사용하세요.
+    metadata:
+      secscan_basis: CWE-78, OWASP A03:2021
+    mode: taint
+    pattern-sources:
+      - patterns:
+          - pattern: |
+              def $FUNC(..., $PARAM, ...):
+                  ...
+          - focus-metavariable: $PARAM
+    pattern-sinks:
+      - patterns:
+          - pattern: os.system($COMMAND)
+          - pattern-inside: |
+              import os
+              ...
+
+  - id: secscan.python.eval
+    languages: [python]
+    severity: ERROR
+    message: 신뢰할 수 없는 문자열을 eval로 실행하지 마세요.
+    metadata:
+      secscan_basis: CWE-95, OWASP A03:2021
+    mode: taint
+    pattern-sources:
+      - patterns:
+          - pattern: |
+              def $FUNC(..., $PARAM, ...):
+                  ...
+          - focus-metavariable: $PARAM
+    pattern-sinks:
+      - pattern: eval($CODE)
+
+  - id: secscan.python.exec
+    languages: [python]
+    severity: ERROR
+    message: 신뢰할 수 없는 문자열을 exec로 실행하지 마세요.
+    metadata:
+      secscan_basis: CWE-95, OWASP A03:2021
+    mode: taint
+    pattern-sources:
+      - patterns:
+          - pattern: |
+              def $FUNC(..., $PARAM, ...):
+                  ...
+          - focus-metavariable: $PARAM
+    pattern-sinks:
+      - pattern: exec($CODE)
