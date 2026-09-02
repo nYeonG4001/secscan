@@ -1,9 +1,8 @@
 import java.io.IOException;
 
-public class SafeProcessBuilderSeparated {
+public class ProcessBuilderSeparated {
     public void runCommand(String command) throws IOException {
         ProcessBuilder builder = new ProcessBuilder(command);
-        builder = new ProcessBuilder("ls");
         builder.start();
     }
 }

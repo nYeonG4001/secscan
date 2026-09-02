@@ -132,6 +132,15 @@ def test_mapping_constraints_and_seed_status(db_session):
         ("secscan.javascript.dom-insert-adjacent-html", "KISA-004"),
         ("secscan.java.process-builder", "KISA-005"),
         ("secscan.python.subprocess-run-shell", "KISA-005"),
+        ("secscan.javascript.dom-outerhtml", "KISA-004"),
+        ("secscan.javascript.document-write", "KISA-004"),
+        ("secscan.python.pickle-unpickler-load", "KISA-043"),
+        ("secscan.python.subprocess-popen-shell", "KISA-005"),
+        ("secscan.python.subprocess-call-shell", "KISA-005"),
+        ("secscan.python.subprocess-check-call-shell", "KISA-005"),
+        ("secscan.python.subprocess-check-output-shell", "KISA-005"),
+        ("secscan.python.os-popen", "KISA-005"),
+        ("secscan.python.subprocess-output-shell", "KISA-005"),
     }
     catalog_items = db_session.query(KisaCatalog).all()
     assert {
@@ -279,6 +288,68 @@ def test_catalog_schemas_do_not_expose_legacy_semgrep_rule_id():
         ),
         ("subprocess_run_shell_const.py", "secscan.python.subprocess-run-shell", "KISA-005"),
         ("dom_innerhtml_compound_assign.js", "secscan.javascript.dom-innerhtml", "KISA-004"),
+        ("dom_outerhtml.js", "secscan.javascript.dom-outerhtml", "KISA-004"),
+        (
+            "dom_outerhtml_compound_assign.js",
+            "secscan.javascript.dom-outerhtml",
+            "KISA-004",
+        ),
+        ("document_write.js", "secscan.javascript.document-write", "KISA-004"),
+        ("document_writeln.js", "secscan.javascript.document-write", "KISA-004"),
+        (
+            "pickle_unpickler_load.py",
+            "secscan.python.pickle-unpickler-load",
+            "KISA-043",
+        ),
+        (
+            "subprocess_popen_shell.py",
+            "secscan.python.subprocess-popen-shell",
+            "KISA-005",
+        ),
+        (
+            "subprocess_call_shell.py",
+            "secscan.python.subprocess-call-shell",
+            "KISA-005",
+        ),
+        (
+            "subprocess_check_call_shell.py",
+            "secscan.python.subprocess-check-call-shell",
+            "KISA-005",
+        ),
+        (
+            "subprocess_check_output_shell.py",
+            "secscan.python.subprocess-check-output-shell",
+            "KISA-005",
+        ),
+        ("os_popen.py", "secscan.python.os-popen", "KISA-005"),
+        (
+            "subprocess_getoutput.py",
+            "secscan.python.subprocess-output-shell",
+            "KISA-005",
+        ),
+        (
+            "subprocess_getstatusoutput.py",
+            "secscan.python.subprocess-output-shell",
+            "KISA-005",
+        ),
+        (
+            "function_constructor_multi_arg.js",
+            "secscan.javascript.function-constructor",
+            "KISA-002",
+        ),
+        (
+            "function_constructor_call_multi_arg.js",
+            "secscan.javascript.function-constructor",
+            "KISA-002",
+        ),
+        ("JdbcExecuteLargeUpdate.java", "secscan.java.jdbc-statement-sql", "KISA-001"),
+        ("path_open_qualified.py", "secscan.python.path-open", "KISA-003"),
+        ("path_open_import_alias.py", "secscan.python.path-open", "KISA-003"),
+        ("path_open_multi_arg.py", "secscan.python.path-open", "KISA-003"),
+        ("path_open_joinpath.py", "secscan.python.path-open", "KISA-003"),
+        ("path_open_resolve.py", "secscan.python.path-open", "KISA-003"),
+        ("path_open_variable_separated.py", "secscan.python.path-open", "KISA-003"),
+        ("ProcessBuilderSeparated.java", "secscan.java.process-builder", "KISA-005"),
     ],
 )
 def test_real_semgrep_vulnerable_fixtures_normalize_to_mapped_findings(
@@ -340,6 +411,56 @@ def test_real_semgrep_vulnerable_fixtures_normalize_to_mapped_findings(
         ("safe_subprocess_run_shell.py", "secscan.python.subprocess-run-shell"),
         ("safe_subprocess_run_popen.py", "secscan.python.subprocess-run-shell"),
         ("safe_dom_innerhtml_compound_assign.js", "secscan.javascript.dom-innerhtml"),
+        ("safe_dom_outerhtml.js", "secscan.javascript.dom-outerhtml"),
+        ("safe_dom_outerhtml_compound_assign.js", "secscan.javascript.dom-outerhtml"),
+        ("safe_document_write.js", "secscan.javascript.document-write"),
+        ("safe_document_writeln.js", "secscan.javascript.document-write"),
+        ("safe_pickle_unpickler_load.py", "secscan.python.pickle-unpickler-load"),
+        ("safe_subprocess_popen_shell.py", "secscan.python.subprocess-popen-shell"),
+        (
+            "safe_subprocess_popen_shell_dynamic.py",
+            "secscan.python.subprocess-popen-shell",
+        ),
+        ("safe_subprocess_call_shell.py", "secscan.python.subprocess-call-shell"),
+        (
+            "safe_subprocess_call_shell_dynamic.py",
+            "secscan.python.subprocess-call-shell",
+        ),
+        (
+            "safe_subprocess_check_call_shell.py",
+            "secscan.python.subprocess-check-call-shell",
+        ),
+        (
+            "safe_subprocess_check_call_shell_dynamic.py",
+            "secscan.python.subprocess-check-call-shell",
+        ),
+        (
+            "safe_subprocess_check_output_shell.py",
+            "secscan.python.subprocess-check-output-shell",
+        ),
+        (
+            "safe_subprocess_check_output_shell_dynamic.py",
+            "secscan.python.subprocess-check-output-shell",
+        ),
+        ("safe_os_popen.py", "secscan.python.os-popen"),
+        ("safe_subprocess_getoutput.py", "secscan.python.subprocess-output-shell"),
+        (
+            "safe_subprocess_getstatusoutput.py",
+            "secscan.python.subprocess-output-shell",
+        ),
+        ("SafeJdbcStatementExecute.java", "secscan.java.jdbc-statement-sql"),
+        ("SafeJdbcStatementAddBatch.java", "secscan.java.jdbc-statement-sql"),
+        ("safe_path_open_unrelated_receiver.py", "secscan.python.path-open"),
+        ("safe_path_open_shadowed_candidate.py", "secscan.python.path-open"),
+        (
+            "SafeProcessBuilderUnrelatedReceiver.java",
+            "secscan.java.process-builder",
+        ),
+        (
+            "SafeProcessBuilderShadowedCandidate.java",
+            "secscan.java.process-builder",
+        ),
+        ("SafeRuntimeExecSeparated.java", "secscan.java.runtime-exec"),
     ],
 )
 def test_real_semgrep_safe_fixtures_do_not_trigger_the_tested_rule(tmp_path, fixture_name, rule_id):
