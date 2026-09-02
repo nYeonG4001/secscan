@@ -99,7 +99,7 @@ KISA 카탈로그
 
 ## 후속 결정 항목
 
-- 기존 6개 KISA 항목의 직접 API 확장 우선순위와 제외 범위는 [ADR-041](adr/041-six-kisa-direct-api-expansion.md) 및 [E5 직접 API 커버리지 확장 계획](epic/e5-kisa-six-code-coverage-expansion.md)을 따른다. 구현 전 원본 요구사항 문서와 다시 대조하며, 구현할 규칙 수의 상한은 정하지 않는다.
+- 기존 6개 KISA 항목의 직접 API 확장 우선순위와 제외 범위는 [ADR-041](adr/041-six-kisa-direct-api-expansion.md) 및 [E5 직접 API 커버리지 확장 계획](epic/e5-kisa-six-code-coverage-expansion.md)을 따른다. 원본 요구사항 문서와의 대조를 마쳤으며, 구현할 규칙 수의 상한은 정하지 않는다.
 - Git 저장소 인증 방식과 기관 내부 경로 허용 범위는 후속 에픽에서 결정
 - SEC-010의 세부 검증 명령과 실행 증거
 
