@@ -29,10 +29,9 @@ export default function LoginPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-secscan-canvas px-4 py-8">
-      <div className="secscan-panel w-full max-w-sm space-y-6 p-6 shadow-2xl shadow-black/40 sm:p-8">
+      <div className="w-full max-w-sm space-y-6 p-6 sm:p-8">
         <div>
           <h1 className="text-center text-3xl font-bold tracking-tight text-secscan-foreground">SecScan</h1>
-          <p className="mt-3 text-center text-sm text-secscan-muted">KISA 개발보안가이드 기반 SAST</p>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
@@ -62,13 +61,15 @@ export default function LoginPage() {
             />
           </div>
           {error && <p role="alert" className="secscan-error-state text-sm">{error}</p>}
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full rounded-lg border-secscan-violet bg-secscan-violet py-2 text-sm font-semibold text-secscan-canvas hover:border-secscan-magenta hover:bg-secscan-magenta disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {loading ? "로그인 중..." : "로그인"}
-          </button>
+          <div className="pt-6">
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full rounded-lg border-secscan-violet bg-secscan-violet py-2 text-sm font-semibold text-secscan-canvas focus:border-secscan-violet focus:outline-none focus:ring-2 focus:ring-secscan-violet/40 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {loading ? "로그인 중..." : "로그인"}
+            </button>
+          </div>
         </form>
       </div>
     </div>

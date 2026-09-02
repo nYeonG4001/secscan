@@ -1,5 +1,5 @@
 import { AxiosError } from "axios";
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { CatalogItem, CatalogUpdate, createCatalog, getCatalog, updateCatalog } from "../api/catalog";
@@ -27,6 +27,10 @@ interface CatalogDraft {
   recommendation: string;
 }
 
+function LockIcon() {
+  return <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="inline-block h-3.5 w-3.5 text-secscan-muted"><rect x="5" y="10" width="14" height="10" rx="2" /><path d="M8 10V7a4 4 0 0 1 8 0v3" /></svg>;
+}
+
 function toDraft(item: CatalogItem): CatalogDraft {
   return {
     description: item.description ?? "",
@@ -48,6 +52,15 @@ function implementationStatusClass(status: CatalogItem["implementation_status"])
   if (status === "지원") return "secscan-status-success";
   if (status === "부분 지원") return "secscan-status-active";
   return "secscan-status-neutral";
+}
+
+function resetScrollPosition(element: HTMLElement | null) {
+  if (!element) return;
+  if (typeof element.scrollTo === "function") {
+    element.scrollTo({ top: 0 });
+    return;
+  }
+  element.scrollTop = 0;
 }
 
 function SearchIcon() {
@@ -106,8 +119,17 @@ export default function CatalogPage() {
     && `${item.kisa_code} ${item.name} ${item.category}`.toLowerCase().includes(search.toLowerCase())
   )), [category, implementationStatus, items, search]);
   const hasChanges = selected ? draftChanged(selected, draft) : false;
+  const detailRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    resetScrollPosition(detailRef.current);
+  }, [selected?.kisa_code]);
 
   function selectItem(item: CatalogItem) {
+    if (selected?.kisa_code === item.kisa_code) {
+      closeDetail();
+      return;
+    }
     setSelected(item);
     setDraft(toDraft(item));
   }
@@ -179,7 +201,7 @@ export default function CatalogPage() {
       {error && <div role="alert" className="secscan-error-state mb-4 text-sm"><p>{error}</p><button type="button" onClick={() => void loadCatalog()} className="secscan-secondary-button mt-4">다시 시도</button></div>}
 
       <div className="mb-5 flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center">
-        <div className="relative min-w-0 sm:max-w-sm sm:flex-1">
+        <div className="relative min-w-0 sm:max-w-[340px] sm:flex-none">
           <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-secscan-muted"><SearchIcon /></span>
           <input aria-label="카탈로그 검색" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="기준명 또는 식별자 검색" className="w-full" style={{ paddingLeft: "2.5rem" }} />
         </div>
@@ -201,11 +223,11 @@ export default function CatalogPage() {
             <table className="min-w-[720px] w-full border-collapse text-left text-sm" aria-label="진단 기준 목록">
               <thead className="sticky top-0 z-10 border-b border-secscan-border bg-secscan-surface-2 text-xs font-semibold text-secscan-muted">
                 <tr>
-                  <th scope="col" className="px-5 py-3">진단 항목 코드</th>
+                  <th scope="col" className="whitespace-nowrap px-5 py-3">진단 항목 코드</th>
                   <th scope="col" className="px-5 py-3">기준명</th>
                   <th scope="col" className="px-5 py-3">분류</th>
                   <th scope="col" className="px-5 py-3">구현 상태</th>
-                  <th scope="col" className="px-5 py-3">활성 여부</th>
+                  <th scope="col" className="whitespace-nowrap px-5 py-3">활성 여부</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-secscan-border">
@@ -234,21 +256,21 @@ export default function CatalogPage() {
           </div>
 
           {selected && (
-            <aside className="min-w-0 overflow-y-auto border-t border-secscan-border bg-secscan-surface p-5 lg:border-l lg:border-t-0 lg:p-6" aria-label="카탈로그 상세">
+            <aside ref={detailRef} className="min-w-0 overflow-y-auto border-t border-secscan-border bg-secscan-surface p-5 lg:border-l lg:border-t-0 lg:p-6" aria-label="카탈로그 상세">
               <div className="flex min-w-0 items-start justify-between gap-4">
                 <div className="min-w-0"><p className="text-sm font-semibold text-secscan-muted">{selected.kisa_code}</p><h2 className="mt-2 break-words text-2xl font-bold tracking-tight">{selected.name}</h2></div>
-                <button type="button" onClick={closeDetail} aria-label="카탈로그 상세 닫기" title="닫기" className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded border border-secscan-border text-xl leading-none text-secscan-muted hover:border-secscan-violet hover:text-secscan-foreground">×</button>
+                <button type="button" onClick={closeDetail} aria-label="카탈로그 상세 닫기" title="닫기" className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded border border-secscan-border text-xl leading-none text-secscan-muted">×</button>
               </div>
 
               {admin && draft ? (
-                <form className="mt-6 space-y-4" onSubmit={save}>
-                  <label className="block text-sm font-medium">진단 항목 코드<input value={selected.kisa_code} readOnly aria-readonly="true" className="mt-2 text-secscan-muted" /></label>
-                  <label className="block text-sm font-medium">기준 식별자<input value={selected.criterion_id ?? "-"} readOnly aria-readonly="true" className="mt-2 text-secscan-muted" /></label>
-                  <label className="block text-sm font-medium">기준명<input value={selected.name} readOnly aria-readonly="true" className="mt-2 text-secscan-muted" /></label>
+                <form className="secscan-catalog-edit-form mt-6 space-y-4" onSubmit={save} onMouseDown={(event) => { if ((event.target as HTMLElement).closest("label")?.querySelector("input[readonly]")) event.preventDefault(); }}>
+                  <label className="block text-sm font-medium"><span className="inline-flex items-center gap-1.5">진단 항목 코드 <LockIcon /></span><div className="relative mt-2"><input value={selected.kisa_code} readOnly aria-readonly="true" tabIndex={-1} className="pointer-events-none text-secscan-muted" /></div></label>
+                  <label className="block text-sm font-medium"><span className="inline-flex items-center gap-1.5">기준 식별자 <LockIcon /></span><input value={selected.criterion_id ?? "-"} readOnly aria-readonly="true" tabIndex={-1} className="pointer-events-none mt-2 text-secscan-muted" /></label>
+                  <label className="block text-sm font-medium"><span className="inline-flex items-center gap-1.5">기준명 <LockIcon /></span><input value={selected.name} readOnly aria-readonly="true" tabIndex={-1} className="pointer-events-none mt-2 text-secscan-muted" /></label>
                   <label className="block text-sm font-medium">설명<textarea value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} className="mt-2" /></label>
                   <div className="grid grid-cols-2 gap-3">
-                    <label className="block text-sm font-medium">분류<input value={selected.category} readOnly aria-readonly="true" className="mt-2 text-secscan-muted" /></label>
-                    <label className="block text-sm font-medium">항목 번호<input value={selected.item_number ?? "-"} readOnly aria-readonly="true" className="mt-2 text-secscan-muted" /></label>
+                    <label className="block text-sm font-medium"><span className="inline-flex items-center gap-1.5">분류 <LockIcon /></span><input value={selected.category} readOnly aria-readonly="true" tabIndex={-1} className="pointer-events-none mt-2 text-secscan-muted" /></label>
+                    <label className="block text-sm font-medium"><span className="inline-flex items-center gap-1.5">항목 번호 <LockIcon /></span><input value={selected.item_number ?? "-"} readOnly aria-readonly="true" tabIndex={-1} className="pointer-events-none mt-2 text-secscan-muted" /></label>
                   </div>
                   <label className="block text-sm font-medium">참조 정보 링크<input value={draft.reference_info} onChange={(event) => setDraft({ ...draft, reference_info: event.target.value })} className="mt-2" /></label>
                   <div className="grid grid-cols-2 gap-3">

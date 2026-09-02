@@ -47,6 +47,15 @@ const finding = {
   mapping_status: "KISA_MAPPED",
 };
 
+const secondFinding = {
+  ...finding,
+  id: 10,
+  rule_name: "SQL 삽입",
+  kisa_code: "KISA-006",
+  file_path: "src/Query.java",
+  line: 24,
+};
+
 const catalogItem = {
   kisa_code: "KISA-005",
   criterion_id: "5",
@@ -59,6 +68,14 @@ const catalogItem = {
   active: true,
   implementation_status: "부분 지원" as const,
   recommendation: "외부 입력을 검증합니다.",
+};
+
+const secondCatalogItem = {
+  ...catalogItem,
+  kisa_code: "KISA-006",
+  criterion_id: "6",
+  item_number: 6,
+  name: "SQL 삽입",
 };
 
 function renderPage(page: React.ReactNode) {
@@ -103,9 +120,34 @@ describe("E6 results and catalog pages", () => {
     expect(screen.getByText("탐지 근거")).toBeInTheDocument();
     expect(screen.queryByText("원본 분석 결과")).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "결과 상세 닫기" }));
+    fireEvent.click(screen.getByRole("button", { name: /운영체제 명령어 삽입/ }));
     expect(screen.queryByLabelText("탐지 결과 상세")).not.toBeInTheDocument();
     expect(screen.getByTestId("finding-list")).toBeInTheDocument();
+    expect(getFinding).toHaveBeenCalledOnce();
+  });
+
+  it("resets finding-detail scroll when another finding is selected", async () => {
+    getFindings.mockResolvedValue({ items: [finding, secondFinding], total: 2, limit: 50, offset: 0 });
+    getFinding.mockImplementation(async (id: number) => ({
+      ...(id === finding.id ? finding : secondFinding),
+      analysis_id: 4,
+      engine_rule_id: "secscan.java.rule",
+      criterion_id: "5",
+      message: "메시지",
+      evidence: "근거",
+      code_snippet: null,
+      recommendation: null,
+    }));
+
+    renderPage(<FindingsPage analysisId="4" />);
+    fireEvent.click(await screen.findByRole("button", { name: /운영체제 명령어 삽입/ }));
+    const detail = await screen.findByLabelText("탐지 결과 상세");
+    detail.scrollTop = 160;
+
+    fireEvent.click(screen.getByRole("button", { name: /SQL 삽입/ }));
+
+    await waitFor(() => expect(detail.scrollTop).toBe(0));
+    expect(screen.getByRole("heading", { name: "SQL 삽입" })).toBeInTheDocument();
   });
 
   it("clears the session when a finding detail request returns 401", async () => {
@@ -155,6 +197,23 @@ describe("E6 results and catalog pages", () => {
 
     expect(screen.getByTestId("catalog-list")).toBeInTheDocument();
     expect(screen.getByLabelText("카탈로그 상세")).toBeInTheDocument();
+  });
+
+  it("resets catalog-detail scroll and closes it when the selected item is clicked", async () => {
+    getCatalog.mockResolvedValue([catalogItem, secondCatalogItem]);
+
+    renderPage(<CatalogPage />);
+    fireEvent.click(await screen.findByRole("row", { name: /KISA-005 운영체제 명령어 삽입/ }));
+    const detail = await screen.findByLabelText("카탈로그 상세");
+    detail.scrollTop = 160;
+
+    fireEvent.click(screen.getByRole("row", { name: /KISA-006 SQL 삽입/ }));
+
+    await waitFor(() => expect(detail.scrollTop).toBe(0));
+    expect(screen.getByRole("heading", { name: "SQL 삽입" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("row", { name: /KISA-006 SQL 삽입/ }));
+    expect(screen.queryByLabelText("카탈로그 상세")).not.toBeInTheDocument();
   });
 
   it("shows the documented catalog 403 guidance and supports retry", async () => {

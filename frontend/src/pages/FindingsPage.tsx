@@ -1,5 +1,5 @@
 import { AxiosError } from "axios";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { FindingDetail, FindingFilters, FindingListItem, getFinding, getFindings } from "../api/findings";
@@ -17,6 +17,15 @@ function severityClass(severity: string | null) {
   if (severity === "CRITICAL" || severity === "HIGH") return "secscan-status-failed";
   if (severity === "MEDIUM") return "secscan-status-active";
   return "secscan-status-neutral";
+}
+
+function resetScrollPosition(element: HTMLElement | null) {
+  if (!element) return;
+  if (typeof element.scrollTo === "function") {
+    element.scrollTo({ top: 0 });
+    return;
+  }
+  element.scrollTop = 0;
 }
 
 export default function FindingsPage({ analysisId }: { analysisId: string }) {
@@ -52,7 +61,17 @@ export default function FindingsPage({ analysisId }: { analysisId: string }) {
     void load();
   }, [load]);
 
+  const detailRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    resetScrollPosition(detailRef.current);
+  }, [selected?.id]);
+
   async function select(item: FindingListItem) {
+    if (selected?.id === item.id) {
+      setSelected(null);
+      return;
+    }
     try {
       setSelected(await getFinding(item.id));
     } catch (requestError) {
@@ -89,58 +108,60 @@ export default function FindingsPage({ analysisId }: { analysisId: string }) {
       <div className="mb-5 min-w-0">
         <div className="min-w-0">
           <h1 className="text-3xl font-bold tracking-tight">탐지 결과</h1>
-          <p className="mt-2 text-sm text-secscan-muted">총 {total}건</p>
         </div>
         <div className="mt-5 flex min-w-0 flex-wrap items-center gap-3" aria-label="결과 필터">
-          <select aria-label="심각도 필터" className="w-auto min-w-40" value={filters.severity ?? ""} onChange={(event) => changeFilter("severity", event.target.value)}>
+          <select aria-label="심각도 필터" className="w-44 flex-none" value={filters.severity ?? ""} onChange={(event) => changeFilter("severity", event.target.value)}>
             <option value="">심각도: 전체</option>
             {["CRITICAL", "HIGH", "MEDIUM", "LOW", "UNKNOWN"].map((value) => <option key={value}>{value}</option>)}
           </select>
-          <select aria-label="KISA 매핑 필터" className="w-auto min-w-40" value={filters.mapping_status ?? ""} onChange={(event) => changeFilter("mapping_status", event.target.value)}>
+          <select aria-label="KISA 매핑 필터" className="w-44 flex-none" value={filters.mapping_status ?? ""} onChange={(event) => changeFilter("mapping_status", event.target.value)}>
             <option value="">매핑 상태: 전체</option>
             <option value="KISA_MAPPED">KISA 매핑됨</option>
             <option value="UNMAPPED">미매핑</option>
           </select>
-          <select aria-label="언어 필터" className="w-auto min-w-36" value={filters.language ?? ""} onChange={(event) => changeFilter("language", event.target.value)}>
+          <select aria-label="언어 필터" className="w-44 flex-none" value={filters.language ?? ""} onChange={(event) => changeFilter("language", event.target.value)}>
             <option value="">언어: 전체</option>
             {["JAVA", "JAVASCRIPT", "PYTHON"].map((value) => <option key={value}>{value}</option>)}
           </select>
-          {hasFilters && <button type="button" onClick={resetFilters} className="secscan-secondary-button px-3 py-1.5 text-xs">필터 초기화</button>}
+          {hasFilters && <button type="button" onClick={resetFilters} aria-label="필터 초기화" title="필터 초기화" className="secscan-secondary-button inline-flex h-10 w-10 items-center justify-center overflow-visible border-0 bg-transparent p-0 leading-none" style={{ borderColor: "transparent", background: "transparent" }}>
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4 shrink-0"><path d="M20 11a8 8 0 1 0 2 5" /><path d="M20 4v7h-7" /></svg>
+          </button>}
         </div>
       </div>
 
       {error && <div role="alert" className="secscan-error-state mb-4 text-sm"><p>{error}</p><button type="button" onClick={() => void load()} className="secscan-secondary-button mt-4">다시 시도</button></div>}
 
       {total === 0 ? (
-        <div className="secscan-empty-state">
+        <div className={hasFilters ? "mt-10" : "secscan-empty-state"}>
           <p className="font-medium text-secscan-foreground">{hasFilters ? "현재 필터에 맞는 결과가 없습니다." : "이 분석에서 탐지된 결과가 없습니다."}</p>
-          {hasFilters && <button type="button" onClick={resetFilters} className="secscan-secondary-button mt-4">필터 초기화</button>}
         </div>
       ) : (
         <div className={`secscan-panel grid min-w-0 overflow-hidden ${selected ? "lg:grid-cols-2" : "grid-cols-1"} lg:h-[600px]`}>
           <div className="min-w-0 overflow-y-auto" data-testid="finding-list">
             {items.map((item) => (
-              <button key={item.id} type="button" onClick={() => void select(item)} aria-pressed={selected?.id === item.id} className={`block w-full min-w-0 border-b border-secscan-border px-5 py-5 text-left last:border-b-0 ${selected?.id === item.id ? "bg-violet-500/10" : "hover:bg-secscan-surface-2"}`}>
+              <button key={item.id} type="button" onClick={() => void select(item)} aria-pressed={selected?.id === item.id} className={`block w-full min-w-0 border-b border-secscan-border px-5 py-5 text-left last:border-b-0 ${selected?.id === item.id ? "bg-violet-500/10" : ""}`}>
                 <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
-                  <span className={`secscan-status-badge ${severityClass(item.severity)}`}>{item.severity ?? "UNKNOWN"}</span>
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span className={`secscan-status-badge ${severityClass(item.severity)}`}>{item.severity ?? "UNKNOWN"}</span>
+                    <p className="min-w-0 break-words font-semibold">{item.rule_name ?? "이름 없는 진단"}</p>
+                  </div>
                   <span className={`secscan-status-badge ${item.mapping_status === "KISA_MAPPED" ? "secscan-status-success" : "secscan-status-neutral"}`}>{item.mapping_status === "KISA_MAPPED" ? item.kisa_code : "미매핑"}</span>
                 </div>
-                <p className="mt-3 break-words font-semibold">{item.rule_name ?? "이름 없는 진단"}</p>
                 <div className="mt-3 flex min-w-0 flex-wrap gap-x-2 gap-y-1 text-sm text-secscan-muted"><span className="break-all">{location(item)}</span><span aria-hidden="true">·</span><span>{item.language ?? "언어 미상"}</span><span aria-hidden="true">·</span><span>{item.confidence ?? "신뢰도 미상"}</span></div>
               </button>
             ))}
           </div>
 
           {selected && (
-            <aside className="min-w-0 overflow-y-auto border-t border-secscan-border bg-secscan-surface p-5 lg:border-l lg:border-t-0 lg:p-6" aria-label="탐지 결과 상세" data-testid="finding-detail">
+            <aside ref={detailRef} className="min-w-0 overflow-y-auto border-t border-secscan-border bg-secscan-surface p-5 lg:border-l lg:border-t-0 lg:p-6" aria-label="탐지 결과 상세" data-testid="finding-detail">
               <div className="flex min-w-0 items-start justify-between gap-4">
-                <div className="min-w-0"><span className={`secscan-status-badge ${severityClass(selected.severity)}`}>{selected.severity ?? "UNKNOWN"}</span><h2 className="mt-3 break-words text-2xl font-bold tracking-tight">{selected.rule_name ?? "이름 없는 진단"}</h2></div>
-                <button type="button" onClick={() => setSelected(null)} aria-label="결과 상세 닫기" className="secscan-secondary-button shrink-0 px-3 py-1.5 text-xs">닫기</button>
+                <div className="flex min-w-0 items-center gap-2"><span className={`secscan-status-badge ${severityClass(selected.severity)}`}>{selected.severity ?? "UNKNOWN"}</span><h2 className="min-w-0 break-words text-2xl font-bold tracking-tight">{selected.rule_name ?? "이름 없는 진단"}</h2></div>
+                <button type="button" onClick={() => setSelected(null)} aria-label="결과 상세 닫기" title="결과 상세 닫기" className="secscan-secondary-button shrink-0 px-3 py-1.5 text-xl leading-none">×</button>
               </div>
               <dl className="mt-6 grid min-w-0 gap-4 text-sm">
-                <div className="secscan-panel p-3"><dt className="text-xs font-semibold text-secscan-muted">매핑 상태</dt><dd className="mt-1 break-words">{selected.mapping_status}</dd></div>
-                <div className="secscan-panel p-3"><dt className="text-xs font-semibold text-secscan-muted">위치</dt><dd className="mt-1 break-all">{location(selected)}</dd></div>
-                <div className="secscan-panel p-3"><dt className="text-xs font-semibold text-secscan-muted">언어 / 신뢰도</dt><dd className="mt-1 break-words">{selected.language ?? "-"} / {selected.confidence ?? "-"}</dd></div>
+                <div><dt className="text-xs font-semibold text-secscan-muted">매핑 상태</dt><dd className="mt-1 break-words">{selected.mapping_status}</dd></div>
+                <div><dt className="text-xs font-semibold text-secscan-muted">위치</dt><dd className="mt-1 break-all">{location(selected)}</dd></div>
+                <div><dt className="text-xs font-semibold text-secscan-muted">언어 / 신뢰도</dt><dd className="mt-1 break-words">{selected.language ?? "-"} / {selected.confidence ?? "-"}</dd></div>
               </dl>
               {([ ["메시지", selected.message], ["탐지 근거", selected.evidence], ["코드 조각", selected.code_snippet], ["조치 권고", selected.recommendation] ] as const).map(([label, value]) => value && <div key={label} className="mt-6 min-w-0"><h3 className="font-semibold">{label}</h3><pre className="mt-3 max-w-full overflow-x-auto whitespace-pre-wrap break-words rounded-lg border border-secscan-border bg-secscan-canvas p-4 text-sm text-secscan-foreground">{value}</pre></div>)}
               {user?.role === "ADMIN" && selected.raw_result != null && <div className="mt-6 min-w-0"><h3 className="font-semibold">원본 분석 결과</h3><pre className="mt-3 max-w-full overflow-x-auto whitespace-pre-wrap break-words rounded-lg border border-secscan-border bg-secscan-canvas p-4 text-xs text-secscan-foreground">{JSON.stringify(selected.raw_result, null, 2)}</pre></div>}
