@@ -1,3 +1,3 @@
-function processInput(userCode) {
-    new Function("arg", userCode)("value");
+function processInput(paramName) {
+    new Function(paramName, "return 1;")(1);
 }

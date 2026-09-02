@@ -246,6 +246,51 @@ KISA_RULE_MAPPING_SEED = [
         "engine_rule_id": "secscan.python.subprocess-run-shell",
         "kisa_code": "KISA-005",
     },
+    {
+        "engine": "semgrep",
+        "engine_rule_id": "secscan.javascript.dom-outerhtml",
+        "kisa_code": "KISA-004",
+    },
+    {
+        "engine": "semgrep",
+        "engine_rule_id": "secscan.javascript.document-write",
+        "kisa_code": "KISA-004",
+    },
+    {
+        "engine": "semgrep",
+        "engine_rule_id": "secscan.python.pickle-unpickler-load",
+        "kisa_code": "KISA-043",
+    },
+    {
+        "engine": "semgrep",
+        "engine_rule_id": "secscan.python.subprocess-popen-shell",
+        "kisa_code": "KISA-005",
+    },
+    {
+        "engine": "semgrep",
+        "engine_rule_id": "secscan.python.subprocess-call-shell",
+        "kisa_code": "KISA-005",
+    },
+    {
+        "engine": "semgrep",
+        "engine_rule_id": "secscan.python.subprocess-check-call-shell",
+        "kisa_code": "KISA-005",
+    },
+    {
+        "engine": "semgrep",
+        "engine_rule_id": "secscan.python.subprocess-check-output-shell",
+        "kisa_code": "KISA-005",
+    },
+    {
+        "engine": "semgrep",
+        "engine_rule_id": "secscan.python.os-popen",
+        "kisa_code": "KISA-005",
+    },
+    {
+        "engine": "semgrep",
+        "engine_rule_id": "secscan.python.subprocess-output-shell",
+        "kisa_code": "KISA-005",
+    },
 ]
 
 KISA_RULE_MAPPING_IMPLEMENTATION_STATUS_UPDATES = {

@@ -76,6 +76,7 @@ rules:
       - pattern-either:
           - pattern: $STATEMENT.executeQuery($SQL)
           - pattern: $STATEMENT.executeUpdate($SQL)
+          - pattern: $STATEMENT.executeLargeUpdate($SQL)
 
   - id: secscan.javascript.dom-innerhtml
     languages: [javascript]
@@ -267,7 +268,24 @@ rules:
                       ...
           - focus-metavariable: $PARAM
     pattern-sinks:
-      - pattern: Path($PATH).open(...)
+      - patterns:
+          - pattern-either:
+              - pattern: Path(..., $PATH).open(...)
+              - pattern: pathlib.Path(..., $PATH).open(...)
+              - pattern: Path(..., $PATH).joinpath(...).open(...)
+              - pattern: Path(..., $PATH).resolve().open(...)
+          - focus-metavariable: $PATH
+      - patterns:
+          - pattern: $ALIAS(..., $PATH).open(...)
+          - pattern-inside: |
+              from pathlib import Path as $ALIAS
+              ...
+          - focus-metavariable: $PATH
+      - patterns:
+          - pattern: $VAR.open(...)
+          - pattern-inside: |
+              $VAR = Path(..., $PATH)
+              ...
 
   - id: secscan.javascript.function-constructor
     languages: [javascript]
@@ -282,9 +300,11 @@ rules:
               function $FUNC(..., $PARAM, ...) { ... }
           - focus-metavariable: $PARAM
     pattern-sinks:
-      - pattern-either:
-          - pattern: Function($CODE)
-          - pattern: new Function($CODE)
+      - patterns:
+          - pattern-either:
+              - pattern: Function(..., $CODE)
+              - pattern: new Function(..., $CODE)
+          - focus-metavariable: $CODE
 
   - id: secscan.javascript.dom-insert-adjacent-html
     languages: [javascript]
@@ -332,6 +352,11 @@ rules:
           - focus-metavariable: $PARAM
     pattern-sinks:
       - pattern: new ProcessBuilder($COMMAND).start()
+      - patterns:
+          - pattern: $BUILDER.start()
+          - pattern-inside: |
+              ProcessBuilder $BUILDER = new ProcessBuilder($COMMAND);
+              ...
 
   - id: secscan.python.subprocess-run-shell
     languages: [python]
@@ -366,3 +391,185 @@ rules:
           - pattern-inside: |
               from subprocess import run
               ...
+
+  - id: secscan.javascript.dom-outerhtml
+    languages: [javascript]
+    severity: ERROR
+    message: 신뢰할 수 없는 값을 outerHTML에 직접 대입하지 마세요.
+    metadata:
+      secscan_basis: CWE-79, OWASP A03:2021
+    mode: taint
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: |
+                  function $FUNC(..., $PARAM, ...) { ... }
+              - pattern: |
+                  async function $FUNC(..., $PARAM, ...) { ... }
+          - focus-metavariable: $PARAM
+    pattern-sinks:
+      - patterns:
+          - pattern: $ELEMENT.outerHTML = $DATA
+          - focus-metavariable: $DATA
+
+  - id: secscan.javascript.document-write
+    languages: [javascript]
+    severity: ERROR
+    message: 신뢰할 수 없는 값을 document.write로 출력하지 마세요.
+    metadata:
+      secscan_basis: CWE-79, OWASP A03:2021
+    mode: taint
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: |
+                  function $FUNC(..., $PARAM, ...) { ... }
+              - pattern: |
+                  async function $FUNC(..., $PARAM, ...) { ... }
+          - focus-metavariable: $PARAM
+    pattern-sinks:
+      - pattern-either:
+          - pattern: document.write($DATA)
+          - pattern: document.writeln($DATA)
+
+  - id: secscan.python.pickle-unpickler-load
+    languages: [python]
+    severity: ERROR
+    message: 신뢰할 수 없는 데이터를 pickle.Unpickler로 역직렬화하지 마세요.
+    metadata:
+      secscan_basis: CWE-502, OWASP A08:2021
+    mode: taint
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: |
+                  def $FUNC(..., $PARAM, ...):
+                      ...
+              - pattern: |
+                  async def $FUNC(..., $PARAM, ...):
+                      ...
+          - focus-metavariable: $PARAM
+    pattern-sinks:
+      - pattern: pickle.Unpickler($DATA).load()
+
+  - id: secscan.python.subprocess-popen-shell
+    languages: [python]
+    severity: ERROR
+    message: 외부 입력을 shell=True인 subprocess.Popen으로 실행하지 말고 허용 목록 기반 명령 실행을 사용하세요.
+    metadata:
+      secscan_basis: CWE-78, OWASP A03:2021
+    mode: taint
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: |
+                  def $FUNC(..., $PARAM, ...):
+                      ...
+              - pattern: |
+                  async def $FUNC(..., $PARAM, ...):
+                      ...
+          - focus-metavariable: $PARAM
+    pattern-sinks:
+      - pattern: subprocess.Popen($COMMAND, ..., shell=True, ...)
+
+  - id: secscan.python.subprocess-call-shell
+    languages: [python]
+    severity: ERROR
+    message: 외부 입력을 shell=True인 subprocess.call로 실행하지 말고 허용 목록 기반 명령 실행을 사용하세요.
+    metadata:
+      secscan_basis: CWE-78, OWASP A03:2021
+    mode: taint
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: |
+                  def $FUNC(..., $PARAM, ...):
+                      ...
+              - pattern: |
+                  async def $FUNC(..., $PARAM, ...):
+                      ...
+          - focus-metavariable: $PARAM
+    pattern-sinks:
+      - pattern: subprocess.call($COMMAND, ..., shell=True, ...)
+
+  - id: secscan.python.subprocess-check-call-shell
+    languages: [python]
+    severity: ERROR
+    message: 외부 입력을 shell=True인 subprocess.check_call로 실행하지 말고 허용 목록 기반 명령 실행을 사용하세요.
+    metadata:
+      secscan_basis: CWE-78, OWASP A03:2021
+    mode: taint
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: |
+                  def $FUNC(..., $PARAM, ...):
+                      ...
+              - pattern: |
+                  async def $FUNC(..., $PARAM, ...):
+                      ...
+          - focus-metavariable: $PARAM
+    pattern-sinks:
+      - pattern: subprocess.check_call($COMMAND, ..., shell=True, ...)
+
+  - id: secscan.python.subprocess-check-output-shell
+    languages: [python]
+    severity: ERROR
+    message: 외부 입력을 shell=True인 subprocess.check_output으로 실행하지 말고 허용 목록 기반 명령 실행을 사용하세요.
+    metadata:
+      secscan_basis: CWE-78, OWASP A03:2021
+    mode: taint
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: |
+                  def $FUNC(..., $PARAM, ...):
+                      ...
+              - pattern: |
+                  async def $FUNC(..., $PARAM, ...):
+                      ...
+          - focus-metavariable: $PARAM
+    pattern-sinks:
+      - pattern: subprocess.check_output($COMMAND, ..., shell=True, ...)
+
+  - id: secscan.python.os-popen
+    languages: [python]
+    severity: ERROR
+    message: 외부 입력을 os.popen으로 실행하지 말고 허용 목록 기반 명령 실행을 사용하세요.
+    metadata:
+      secscan_basis: CWE-78, OWASP A03:2021
+    mode: taint
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: |
+                  def $FUNC(..., $PARAM, ...):
+                      ...
+              - pattern: |
+                  async def $FUNC(..., $PARAM, ...):
+                      ...
+          - focus-metavariable: $PARAM
+    pattern-sinks:
+      - pattern: os.popen($COMMAND)
+
+  - id: secscan.python.subprocess-output-shell
+    languages: [python]
+    severity: ERROR
+    message: 외부 입력을 암묵적 셸 실행 API로 전달하지 말고 허용 목록 기반 명령 실행을 사용하세요.
+    metadata:
+      secscan_basis: CWE-78, OWASP A03:2021
+    mode: taint
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: |
+                  def $FUNC(..., $PARAM, ...):
+                      ...
+              - pattern: |
+                  async def $FUNC(..., $PARAM, ...):
+                      ...
+          - focus-metavariable: $PARAM
+    pattern-sinks:
+      - pattern-either:
+          - pattern: subprocess.getoutput($COMMAND)
+          - pattern: subprocess.getstatusoutput($COMMAND)
