@@ -130,5 +130,6 @@ E5는 E4가 실행한 Semgrep JSON 결과를 엔진 독립적인 진단 결과�
 
 - 기존 6개 KISA 항목의 직접 API 커버리지 확장 계획: `docs/epic/e5-kisa-six-code-coverage-expansion.md` 및 ADR-041. 이 계획은 구현 증거가 아니며, 각 예정 규칙은 독립 fixture와 Ubuntu CI 게이트를 통과한 뒤에만 E5-10 증거를 갱신한다.
 - A단계 2차 직접 API 확장 계획: `docs/epic/e5-kisa-direct-api-expansion-round-2.md` 및 ADR-042. 1차 구현(PR #52) 뒤 검증한 직접 sink·제외·통합 구현 PR 게이트를 별도로 기록하며, framework request source는 포함하지 않는다.
+- B단계 framework request source 확장 계획: `docs/epic/e5-framework-source-expansion.md` 및 ADR-043. Flask·Servlet의 anchor가 있는 직접 요청값만 기존 rule ID source로 추가 검토하며, JavaScript 익명 handler source 형태·DI·sanitizer는 후속 단계로 둔다.
 - E6-03 진단 결과 목록과 필터 UI
 - E6-04 진단 결과 상세 패널 UI
