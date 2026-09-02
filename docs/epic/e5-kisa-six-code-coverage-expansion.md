@@ -42,7 +42,7 @@
 | `secscan.java.process-builder` | 통과, 기존 규칙과 중복 없음 | 모든 접근 제어자·static 여부의 직접 단일 인자 생성자 + 즉시 `start()`; 다중 인자·변수 분리 제외 |
 | `secscan.python.subprocess-run-shell` | 통과 | `run`만, `shell=True` 및 지역 상수 `True` 전파·import 별칭·from-import·추가 고정 kwargs 포함; 동적 shell·다른 subprocess API 제외 |
 
-사전 검증을 모두 끝낸 뒤 구현한다. 통과한 규칙은 **규칙 하나당 보안 구현 PR 하나**로 분리하며, 해당 PR의 fixture·매핑·provenance·정규화 테스트·Ubuntu CI가 모두 끝나기 전에는 다음 규칙의 구현 PR을 시작하지 않는다.
+사전 검증을 모두 끝낸 뒤 구현한다. 통과한 신규 규칙 여섯 개와 기존 `innerHTML +=` 회귀 fixture·provenance 보강은 **하나의 보안 구현 PR**에 함께 넣는다. 작업은 규칙별로 독립 구현·검증할 수 있지만, 최종 PR에는 규칙 YAML, 매핑, provenance, fixture, 정규화 테스트와 전체 Ubuntu CI 증거를 모두 포함한다. 각 규칙의 대상 `check_id`·정상 fixture 게이트는 통합 PR 안에서도 독립적으로 유지한다.
 
 기존 카탈로그 분류, Semgrep 표현력, 기대 fixture 중 하나라도 이 계획의 source-to-sink 계약을 지지하지 않으면 해당 후보를 제외하고 사용자에게 범위 재결정을 요청한다. 기대값을 낮추거나 `부분 지원` 상태를 먼저 바꾸지 않는다.
 

@@ -228,3 +228,141 @@ rules:
           - focus-metavariable: $PARAM
     pattern-sinks:
       - pattern: exec($CODE)
+
+  - id: secscan.python.pickle-load
+    languages: [python]
+    severity: ERROR
+    message: 신뢰할 수 없는 데이터를 pickle.load로 역직렬화하지 마세요.
+    metadata:
+      secscan_basis: CWE-502, OWASP A08:2021
+    mode: taint
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: |
+                  def $FUNC(..., $PARAM, ...):
+                      ...
+              - pattern: |
+                  async def $FUNC(..., $PARAM, ...):
+                      ...
+          - focus-metavariable: $PARAM
+    pattern-sinks:
+      - pattern: pickle.load($DATA)
+
+  - id: secscan.python.path-open
+    languages: [python]
+    severity: ERROR
+    message: 외부 입력 경로로 Path.open을 사용하지 말고 서버 관리 경로와 허용 목록을 사용하세요.
+    metadata:
+      secscan_basis: CWE-22, OWASP A01:2021
+    mode: taint
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: |
+                  def $FUNC(..., $PARAM, ...):
+                      ...
+              - pattern: |
+                  async def $FUNC(..., $PARAM, ...):
+                      ...
+          - focus-metavariable: $PARAM
+    pattern-sinks:
+      - pattern: Path($PATH).open(...)
+
+  - id: secscan.javascript.function-constructor
+    languages: [javascript]
+    severity: ERROR
+    message: 신뢰할 수 없는 문자열로 Function 생성자를 사용하지 마세요.
+    metadata:
+      secscan_basis: CWE-95, OWASP A03:2021
+    mode: taint
+    pattern-sources:
+      - patterns:
+          - pattern: |
+              function $FUNC(..., $PARAM, ...) { ... }
+          - focus-metavariable: $PARAM
+    pattern-sinks:
+      - pattern-either:
+          - pattern: Function($CODE)
+          - pattern: new Function($CODE)
+
+  - id: secscan.javascript.dom-insert-adjacent-html
+    languages: [javascript]
+    severity: ERROR
+    message: 신뢰할 수 없는 값을 insertAdjacentHTML의 HTML 인자에 사용하지 마세요.
+    metadata:
+      secscan_basis: CWE-79, OWASP A03:2021
+    mode: taint
+    pattern-sources:
+      - patterns:
+          - pattern: |
+              function $FUNC(..., $PARAM, ...) { ... }
+          - focus-metavariable: $PARAM
+    pattern-sinks:
+      - patterns:
+          - pattern: $ELEMENT.insertAdjacentHTML($POSITION, $DATA)
+          - focus-metavariable: $DATA
+
+  - id: secscan.java.process-builder
+    languages: [java]
+    severity: ERROR
+    message: 외부 입력으로 ProcessBuilder를 생성하지 말고 허용 목록 기반 명령 실행을 사용하세요.
+    metadata:
+      secscan_basis: CWE-78, OWASP A03:2021
+    mode: taint
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: |
+                  public $RET $METHOD(..., String $PARAM, ...) { ... }
+              - pattern: |
+                  protected $RET $METHOD(..., String $PARAM, ...) { ... }
+              - pattern: |
+                  private $RET $METHOD(..., String $PARAM, ...) { ... }
+              - pattern: |
+                  static $RET $METHOD(..., String $PARAM, ...) { ... }
+              - pattern: |
+                  public static $RET $METHOD(..., String $PARAM, ...) { ... }
+              - pattern: |
+                  protected static $RET $METHOD(..., String $PARAM, ...) { ... }
+              - pattern: |
+                  private static $RET $METHOD(..., String $PARAM, ...) { ... }
+              - pattern: |
+                  $RET $METHOD(..., String $PARAM, ...) { ... }
+          - focus-metavariable: $PARAM
+    pattern-sinks:
+      - pattern: new ProcessBuilder($COMMAND).start()
+
+  - id: secscan.python.subprocess-run-shell
+    languages: [python]
+    severity: ERROR
+    message: 외부 입력을 shell=True로 실행하지 말고 허용 목록 기반 명령 실행을 사용하세요.
+    metadata:
+      secscan_basis: CWE-78, OWASP A03:2021
+    mode: taint
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: |
+                  def $FUNC(..., $PARAM, ...):
+                      ...
+              - pattern: |
+                  async def $FUNC(..., $PARAM, ...):
+                      ...
+          - focus-metavariable: $PARAM
+    pattern-sinks:
+      - patterns:
+          - pattern: subprocess.run($COMMAND, ..., shell=True, ...)
+          - pattern-inside: |
+              import subprocess
+              ...
+      - patterns:
+          - pattern: $SP.run($COMMAND, ..., shell=True, ...)
+          - pattern-inside: |
+              import subprocess as $SP
+              ...
+      - patterns:
+          - pattern: run($COMMAND, ..., shell=True, ...)
+          - pattern-inside: |
+              from subprocess import run
+              ...

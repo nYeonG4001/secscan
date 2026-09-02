@@ -126,6 +126,12 @@ def test_mapping_constraints_and_seed_status(db_session):
         ("secscan.python.os-system", "KISA-005"),
         ("secscan.python.eval", "KISA-002"),
         ("secscan.python.exec", "KISA-002"),
+        ("secscan.python.pickle-load", "KISA-043"),
+        ("secscan.python.path-open", "KISA-003"),
+        ("secscan.javascript.function-constructor", "KISA-002"),
+        ("secscan.javascript.dom-insert-adjacent-html", "KISA-004"),
+        ("secscan.java.process-builder", "KISA-005"),
+        ("secscan.python.subprocess-run-shell", "KISA-005"),
     }
     catalog_items = db_session.query(KisaCatalog).all()
     assert {
@@ -252,6 +258,27 @@ def test_catalog_schemas_do_not_expose_legacy_semgrep_rule_id():
         ("os_system_injection.py", "secscan.python.os-system", "KISA-005"),
         ("eval_injection.py", "secscan.python.eval", "KISA-002"),
         ("exec_injection.py", "secscan.python.exec", "KISA-002"),
+        ("pickle_load_direct.py", "secscan.python.pickle-load", "KISA-043"),
+        ("pickle_load_bytesio.py", "secscan.python.pickle-load", "KISA-043"),
+        ("path_open.py", "secscan.python.path-open", "KISA-003"),
+        ("function_constructor.js", "secscan.javascript.function-constructor", "KISA-002"),
+        ("function_constructor_new.js", "secscan.javascript.function-constructor", "KISA-002"),
+        ("dom_insert_adjacent_html.js", "secscan.javascript.dom-insert-adjacent-html", "KISA-004"),
+        (
+            "dom_insert_adjacent_html_template.js",
+            "secscan.javascript.dom-insert-adjacent-html",
+            "KISA-004",
+        ),
+        ("ProcessBuilderInjection.java", "secscan.java.process-builder", "KISA-005"),
+        ("subprocess_run_shell.py", "secscan.python.subprocess-run-shell", "KISA-005"),
+        ("subprocess_run_shell_alias.py", "secscan.python.subprocess-run-shell", "KISA-005"),
+        (
+            "subprocess_run_shell_from_import.py",
+            "secscan.python.subprocess-run-shell",
+            "KISA-005",
+        ),
+        ("subprocess_run_shell_const.py", "secscan.python.subprocess-run-shell", "KISA-005"),
+        ("dom_innerhtml_compound_assign.js", "secscan.javascript.dom-innerhtml", "KISA-004"),
     ],
 )
 def test_real_semgrep_vulnerable_fixtures_normalize_to_mapped_findings(
@@ -300,6 +327,19 @@ def test_real_semgrep_vulnerable_fixtures_normalize_to_mapped_findings(
         ("safe_module_reassigned_os_system.py", "secscan.python.os-system"),
         ("safe_local_reassigned_os_system.py", "secscan.python.os-system"),
         ("safe_imported_os_module.py", "secscan.python.os-system"),
+        ("safe_pickle_load.py", "secscan.python.pickle-load"),
+        ("safe_path_open.py", "secscan.python.path-open"),
+        ("safe_path_open_variable_separated.py", "secscan.python.path-open"),
+        ("safe_path_open_qualified.py", "secscan.python.path-open"),
+        ("safe_function_constructor.js", "secscan.javascript.function-constructor"),
+        ("safe_function_constructor_multi_arg.js", "secscan.javascript.function-constructor"),
+        ("safe_dom_insert_adjacent_html.js", "secscan.javascript.dom-insert-adjacent-html"),
+        ("SafeProcessBuilder.java", "secscan.java.process-builder"),
+        ("SafeProcessBuilderMultiArg.java", "secscan.java.process-builder"),
+        ("SafeProcessBuilderSeparated.java", "secscan.java.process-builder"),
+        ("safe_subprocess_run_shell.py", "secscan.python.subprocess-run-shell"),
+        ("safe_subprocess_run_popen.py", "secscan.python.subprocess-run-shell"),
+        ("safe_dom_innerhtml_compound_assign.js", "secscan.javascript.dom-innerhtml"),
     ],
 )
 def test_real_semgrep_safe_fixtures_do_not_trigger_the_tested_rule(tmp_path, fixture_name, rule_id):
@@ -308,3 +348,33 @@ def test_real_semgrep_safe_fixtures_do_not_trigger_the_tested_rule(tmp_path, fix
     result = SemgrepRunner(timeout_seconds=30).run(tmp_path)
 
     assert rule_id not in {result["check_id"] for result in result.results}
+
+
+def test_pickle_load_open_propagation_produces_two_distinct_findings(db_session, tmp_path):
+    seed_kisa_catalog(db_session)
+    seed_kisa_rule_mappings(db_session)
+    shutil.copy(
+        FIXTURE_ROOT / "vulnerable" / "pickle_load_open_propagation.py",
+        tmp_path / "pickle_load_open_propagation.py",
+    )
+    analysis = _analysis(db_session)
+
+    result = SemgrepRunner(timeout_seconds=30).run(tmp_path)
+    check_ids = {item["check_id"] for item in result.results}
+    assert "secscan.python.open-user-path" in check_ids
+    assert "secscan.python.pickle-load" in check_ids
+
+    persist_normalized_findings(
+        db_session,
+        analysis.id,
+        tmp_path,
+        parse_semgrep_results(result.results, tmp_path),
+    )
+    db_session.commit()
+
+    findings = db_session.query(Finding).filter_by(analysis_id=analysis.id).all()
+    assert len(findings) == 2
+    by_rule = {f.engine_rule_id: f for f in findings}
+    assert by_rule["secscan.python.open-user-path"].kisa_code == "KISA-003"
+    assert by_rule["secscan.python.pickle-load"].kisa_code == "KISA-043"
+    assert all(f.severity == "HIGH" for f in findings)
