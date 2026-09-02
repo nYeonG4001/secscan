@@ -11,7 +11,7 @@
 | `secscan.python.open-user-path` | KISA-003 경로 조작 및 자원 삽입 | Python | 함수 매개변수 → 내장 `open($PATH, ...)` | CWE-22, OWASP A01:2021 |
 
 - Java 규칙은 `execute(String)`, `executeUpdate(String, int)`, `PreparedStatement`, ORM, JPA를 포함하지 않는다. 메서드명만으로 sink를 판정하므로 실제 JDBC 타입 해석은 하지 않는다.
-- JavaScript 규칙은 직접 `innerHTML =` 대입만 포함한다. `innerHTML +=`, React·템플릿·SSR·`insertAdjacentHTML`과 프레임워크별 sanitizer는 포함하지 않는다. 속성명만으로 sink를 판정하므로 실제 DOM 객체 타입은 해석하지 않는다.
+- JavaScript 규칙은 `$ELEMENT.innerHTML = $DATA` 패턴을 사용한다. 고정 Semgrep OSS 1.95.0의 2026-09-02 직접 검증에서 이 패턴은 `innerHTML +=`도 같은 `secscan.javascript.dom-innerhtml` 규칙으로 탐지했다. 따라서 `+=` 전용 규칙 ID·KISA 매핑은 추가하지 않는다. React·템플릿·SSR·`insertAdjacentHTML`과 프레임워크별 sanitizer는 포함하지 않는다. 속성명만으로 sink를 판정하므로 실제 DOM 객체 타입은 해석하지 않는다.
 - Python 규칙은 bare builtin `open()`만 포함한다. `Path.open`, `os.open`, `shutil`, 압축 해제와 업로드 경로 검증은 포함하지 않는다. 로컬에서 `open` 이름을 재정의한 코드는 이번 범위에서 구분하지 않는다.
 - Java와 Python의 정상 fixture는 각각 PreparedStatement 바인딩과 고정 서버 관리 경로를 사용한다. 이는 모든 sanitizer·경로 검증 전략의 안전성을 판정한다는 뜻이 아니라, 이 규칙의 source-to-sink 형태가 없을 때 미탐지되는지를 확인하는 범위다.
 - 모든 신규 취약 fixture는 고정 YAML 파일과 `--no-rewrite-rule-ids`로 실제 Semgrep OSS를 직접 실행해, 정확히 한 건의 접두어 없는 `check_id`가 나오는지 확인한다. 확인한 값만 `KISA_RULE_MAPPING` 시드에 사용한다.
