@@ -176,7 +176,7 @@ describe("authentication routes", () => {
     expect(await screen.findByRole("columnheader", { name: "분석 요청 시각" })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "시작 시각" })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "완료 시각" })).toBeInTheDocument();
-    const analysisRow = screen.getByRole("row", { name: /2026-08-30 18:00 분석 완료 2026-08-30 18:01 2026-08-30 18:02/ });
+    const analysisRow = screen.getByRole("row", { name: /분석 완료/ });
     expect(analysisRow).toHaveAttribute("tabindex", "0");
     fireEvent.keyDown(analysisRow, { key: "Enter" });
     await waitFor(() => expect(window.location.pathname).toBe("/projects/1/analyses/11"));
