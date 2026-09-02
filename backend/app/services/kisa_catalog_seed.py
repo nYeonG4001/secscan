@@ -216,6 +216,36 @@ KISA_RULE_MAPPING_SEED = [
         "engine_rule_id": "secscan.python.exec",
         "kisa_code": "KISA-002",
     },
+    {
+        "engine": "semgrep",
+        "engine_rule_id": "secscan.python.pickle-load",
+        "kisa_code": "KISA-043",
+    },
+    {
+        "engine": "semgrep",
+        "engine_rule_id": "secscan.python.path-open",
+        "kisa_code": "KISA-003",
+    },
+    {
+        "engine": "semgrep",
+        "engine_rule_id": "secscan.javascript.function-constructor",
+        "kisa_code": "KISA-002",
+    },
+    {
+        "engine": "semgrep",
+        "engine_rule_id": "secscan.javascript.dom-insert-adjacent-html",
+        "kisa_code": "KISA-004",
+    },
+    {
+        "engine": "semgrep",
+        "engine_rule_id": "secscan.java.process-builder",
+        "kisa_code": "KISA-005",
+    },
+    {
+        "engine": "semgrep",
+        "engine_rule_id": "secscan.python.subprocess-run-shell",
+        "kisa_code": "KISA-005",
+    },
 ]
 
 KISA_RULE_MAPPING_IMPLEMENTATION_STATUS_UPDATES = {
