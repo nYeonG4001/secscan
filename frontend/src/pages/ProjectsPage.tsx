@@ -108,8 +108,8 @@ export default function ProjectsPage() {
 
   return (
     <section className="min-w-0">
-      <nav aria-label="경로" className="text-sm text-secscan-muted">
-        <span className="text-secscan-foreground">프로젝트</span>
+      <nav aria-label="경로" className="h-5 text-sm text-secscan-muted">
+        <span className="sr-only">프로젝트</span>
       </nav>
       <div className="mb-7 mt-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
@@ -150,7 +150,7 @@ export default function ProjectsPage() {
                   className="cursor-pointer transition-colors hover:bg-secscan-surface-2 focus-visible:bg-secscan-surface-2"
                 >
                   <td className="max-w-sm px-5 py-4 font-semibold text-secscan-foreground">
-                    <Link to={`/projects/${project.id}`} className="block break-words hover:text-secscan-violet">
+                    <Link to={`/projects/${project.id}`} className="block break-words">
                       {project.name}
                     </Link>
                   </td>

@@ -8,9 +8,33 @@ export interface SourceUploadResponse {
   target_languages: string[];
 }
 
+export interface SourcePreflightResponse {
+  safe: true;
+}
+
 export interface SourceUploadOptions {
   signal: AbortSignal;
   onUploadProgress: (event: AxiosProgressEvent) => void;
+}
+
+export interface SourcePreflightOptions {
+  signal: AbortSignal;
+}
+
+export async function preflightProjectSource(
+  projectId: string,
+  file: File,
+  options: SourcePreflightOptions,
+): Promise<SourcePreflightResponse> {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const response = await api.post<SourcePreflightResponse>(
+    `/projects/${projectId}/source/preflight`,
+    formData,
+    options,
+  );
+  return response.data;
 }
 
 export async function uploadProjectSource(

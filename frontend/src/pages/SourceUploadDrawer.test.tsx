@@ -1,27 +1,31 @@
 import { CanceledError } from "axios";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { SourceUploadOptions } from "../api/sourceUpload";
 import { SourceUploadDrawer } from "./SourceUploadDrawer";
 
-const { uploadProjectSource } = vi.hoisted(() => ({
+const { preflightProjectSource, uploadProjectSource } = vi.hoisted(() => ({
+  preflightProjectSource: vi.fn(),
   uploadProjectSource: vi.fn(),
 }));
 
-vi.mock("../api/sourceUpload", () => ({ uploadProjectSource }));
+vi.mock("../api/sourceUpload", () => ({ preflightProjectSource, uploadProjectSource }));
 
 const onClose = vi.fn();
 const onProjectRefresh = vi.fn();
 const onRequestError = vi.fn();
+const onAnalysis = vi.fn();
 
-function renderDrawer() {
+function renderDrawer({ hasExistingSource = false } = {}) {
   return render(
     <SourceUploadDrawer
       projectId="12"
+      hasExistingSource={hasExistingSource}
       onClose={onClose}
       onProjectRefresh={onProjectRefresh}
       onRequestError={onRequestError}
+      onAnalysis={onAnalysis}
     />,
   );
 }
@@ -32,18 +36,66 @@ function selectZip() {
   });
 }
 
+async function finishPreflightDelay() {
+  await act(async () => {
+    await Promise.resolve();
+    await Promise.resolve();
+    await vi.advanceTimersByTimeAsync(3_000);
+  });
+}
+
+async function completeSafePreflight() {
+  await finishPreflightDelay();
+  const status = screen.getByRole("status");
+  expect(status).toHaveTextContent("파일이 선택되었습니다.");
+  expect(status).not.toHaveTextContent("ZIP 안전성 확인을 완료했습니다.");
+}
+
+async function flushAsyncWork() {
+  await act(async () => {
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+}
+
 describe("SourceUploadDrawer", () => {
   beforeEach(() => {
+    vi.useFakeTimers();
+    preflightProjectSource.mockReset();
+    preflightProjectSource.mockResolvedValue({ safe: true });
     uploadProjectSource.mockReset();
     onClose.mockReset();
     onProjectRefresh.mockReset();
     onProjectRefresh.mockResolvedValue(undefined);
     onRequestError.mockReset();
+    onAnalysis.mockReset();
   });
 
-  afterEach(cleanup);
+  afterEach(() => {
+    cleanup();
+    vi.useRealTimers();
+  });
 
-  it("uploads the selected ZIP, shows progress, and refreshes the project after success", async () => {
+  it("shows a loading state and keeps registration disabled while ZIP safety is checked", async () => {
+    let resolvePreflight: ((value: { safe: true }) => void) | undefined;
+    preflightProjectSource.mockImplementation(() => new Promise((resolve) => {
+      resolvePreflight = resolve;
+    }));
+
+    renderDrawer();
+    selectZip();
+
+    expect(screen.getByLabelText("ZIP 안전성 확인 중")).toHaveAttribute("aria-busy", "true");
+    expect(screen.getByRole("button", { name: "분석 실행" })).toBeDisabled();
+    expect(uploadProjectSource).not.toHaveBeenCalled();
+    expect(onAnalysis).not.toHaveBeenCalled();
+    resolvePreflight?.({ safe: true });
+    await completeSafePreflight();
+    expect(screen.getByRole("button", { name: "분석 실행" })).toBeEnabled();
+  });
+
+  it("starts registration and analysis only after a safe ZIP preflight succeeds", async () => {
     uploadProjectSource.mockImplementation(async (_projectId: string, _file: File, options: SourceUploadOptions) => {
       options.onUploadProgress({ loaded: 5, total: 10, bytes: 5, lengthComputable: true });
       return { project_id: 12, source_status: "REGISTERED", target_languages: ["JAVA", "PYTHON"] };
@@ -51,11 +103,17 @@ describe("SourceUploadDrawer", () => {
 
     renderDrawer();
     selectZip();
-    fireEvent.click(screen.getByRole("button", { name: "소스 등록" }));
+    await completeSafePreflight();
+    fireEvent.click(screen.getByRole("button", { name: "분석 실행" }));
 
-    expect(await screen.findByText("소스가 등록되었습니다.")).toBeInTheDocument();
-    expect(screen.getByText("JAVA, PYTHON")).toBeInTheDocument();
+    await flushAsyncWork();
+    expect(onAnalysis).toHaveBeenCalledOnce();
     expect(onProjectRefresh).toHaveBeenCalledOnce();
+    expect(preflightProjectSource).toHaveBeenCalledWith(
+      "12",
+      expect.any(File),
+      { signal: expect.any(AbortSignal) },
+    );
     expect(uploadProjectSource).toHaveBeenCalledWith(
       "12",
       expect.any(File),
@@ -64,21 +122,45 @@ describe("SourceUploadDrawer", () => {
   });
 
   it.each([
-    ["ANALYSIS_ACTIVE", "분석이 끝난 뒤 업로드할 수 있습니다."],
-    ["UPLOAD_IN_PROGRESS", "다른 업로드가 진행 중입니다."],
     ["ARCHIVE_TOO_LARGE", "25MB 이하 ZIP만 업로드할 수 있습니다."],
     ["ARCHIVE_LIMIT_EXCEEDED", "ZIP 압축 해제 제한을 초과했습니다."],
-    ["UNSAFE_ARCHIVE", "안전하지 않은 ZIP입니다."],
-    ["NO_SUPPORTED_SOURCE", "지원하는 소스 파일이 없습니다."],
-  ])("shows only the safe message for %s", async (code, message) => {
-    uploadProjectSource.mockRejectedValue({ response: { status: 422, data: { code, detail: "/internal/archive/path" } } });
+    ["UNSAFE_ARCHIVE", "안전하지 않은 .zip 파일입니다."],
+  ])("shows a red safe preflight error for %s and does not register", async (code, message) => {
+    preflightProjectSource.mockRejectedValue({ response: { status: 422, data: { code, detail: "/internal/archive/path" } } });
 
     renderDrawer();
     selectZip();
-    fireEvent.click(screen.getByRole("button", { name: "소스 등록" }));
+    await finishPreflightDelay();
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(message);
+    expect(screen.getByRole("alert")).toHaveTextContent(message);
+    expect(screen.getByRole("button", { name: "분석 실행" })).toBeDisabled();
+    expect(uploadProjectSource).not.toHaveBeenCalled();
     expect(screen.queryByText("/internal/archive/path")).not.toBeInTheDocument();
+  });
+
+  it("asks for confirmation before replacing an existing source", async () => {
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+    renderDrawer({ hasExistingSource: true });
+    selectZip();
+    expect(confirm).not.toHaveBeenCalled();
+    await completeSafePreflight();
+    fireEvent.click(screen.getByRole("button", { name: "분석 실행" }));
+
+    expect(confirm).toHaveBeenCalledWith("기존 소스를 교체하고 분석을 시작할까요?");
+    expect(uploadProjectSource).not.toHaveBeenCalled();
+    confirm.mockRestore();
+  });
+
+  it("preserves an existing source after an unsafe ZIP preflight", async () => {
+    preflightProjectSource.mockRejectedValue({ response: { status: 422, data: { code: "UNSAFE_ARCHIVE" } } });
+    renderDrawer({ hasExistingSource: true });
+    selectZip();
+    await finishPreflightDelay();
+
+    expect(screen.getByRole("alert")).toHaveTextContent("안전하지 않은 .zip 파일입니다.");
+    expect(uploadProjectSource).not.toHaveBeenCalled();
+    expect(onProjectRefresh).not.toHaveBeenCalled();
+    expect(onAnalysis).not.toHaveBeenCalled();
   });
 
   it("does not resubmit during an active upload and refreshes after cancellation", async () => {
@@ -89,13 +171,15 @@ describe("SourceUploadDrawer", () => {
 
     renderDrawer();
     selectZip();
-    fireEvent.click(screen.getByRole("button", { name: "소스 등록" }));
-    expect(await screen.findByRole("progressbar", { name: "업로드 진행률" })).toHaveValue(30);
+    await completeSafePreflight();
+    fireEvent.click(screen.getByRole("button", { name: "분석 실행" }));
+    expect(screen.getByRole("progressbar", { name: "업로드 진행률" })).toHaveValue(30);
     fireEvent.click(screen.getByRole("button", { name: "업로드 취소" }));
 
-    await waitFor(() => expect(onProjectRefresh).toHaveBeenCalledOnce());
+    await flushAsyncWork();
+    expect(onProjectRefresh).toHaveBeenCalledOnce();
     expect(uploadProjectSource).toHaveBeenCalledOnce();
-    expect(screen.getByRole("button", { name: "소스 등록" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "분석 실행" })).toBeEnabled();
   });
 
   it("requires an explicit retry after a failed upload", async () => {
@@ -105,13 +189,16 @@ describe("SourceUploadDrawer", () => {
 
     renderDrawer();
     selectZip();
-    fireEvent.click(screen.getByRole("button", { name: "소스 등록" }));
+    await completeSafePreflight();
+    fireEvent.click(screen.getByRole("button", { name: "분석 실행" }));
 
-    expect(await screen.findByText("업로드에 실패했습니다. 다시 시도해 주세요.")).toBeInTheDocument();
+    await flushAsyncWork();
+    expect(screen.getByText("업로드에 실패했습니다. 다시 시도해 주세요.")).toBeInTheDocument();
     expect(uploadProjectSource).toHaveBeenCalledOnce();
     fireEvent.click(screen.getByRole("button", { name: "다시 시도" }));
 
-    expect(await screen.findByText("소스가 등록되었습니다.")).toBeInTheDocument();
+    await flushAsyncWork();
+    expect(onAnalysis).toHaveBeenCalledOnce();
     expect(uploadProjectSource).toHaveBeenCalledTimes(2);
   });
 });

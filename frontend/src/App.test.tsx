@@ -7,7 +7,7 @@ import { AuthProvider } from "./auth/AuthProvider";
 import { FORBIDDEN_MESSAGE, RoleGuard, SESSION_EXPIRED_MESSAGE } from "./auth/RouteGuards";
 
 const { api, getCurrentUser, login, logout } = vi.hoisted(() => ({
-  api: { delete: vi.fn(), get: vi.fn(), post: vi.fn() },
+  api: { delete: vi.fn(), get: vi.fn(), post: vi.fn(), put: vi.fn() },
   getCurrentUser: vi.fn(),
   login: vi.fn(),
   logout: vi.fn(),
@@ -27,6 +27,7 @@ describe("authentication routes", () => {
     logout.mockReset();
     api.get.mockReset();
     api.post.mockReset();
+    api.put.mockReset();
     api.delete.mockReset();
   });
 
@@ -107,7 +108,7 @@ describe("authentication routes", () => {
     renderApp("/projects/1");
 
     expect(await screen.findByRole("button", { name: "관리" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "소스" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "분석" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "접근권한 관리" })).not.toBeInTheDocument();
   });
 
@@ -129,7 +130,7 @@ describe("authentication routes", () => {
     expect(document.body.style.overflow).toBe("");
   });
 
-  it("disables source registration while the project has an active analysis", async () => {
+  it("disables the analysis action while the project has an active analysis", async () => {
     getCurrentUser.mockResolvedValue({ email: "admin@secscan.io", role: "ADMIN" });
     api.get
       .mockResolvedValueOnce({ data: { id: 1, name: "분석 중 프로젝트", description: null } })
@@ -137,7 +138,7 @@ describe("authentication routes", () => {
 
     renderApp("/projects/1");
 
-    await waitFor(() => expect(screen.getByRole("button", { name: "소스" })).toBeDisabled());
+    await waitFor(() => expect(screen.getByRole("button", { name: "분석" })).toBeDisabled());
     expect(screen.getByText("분석 요청 시각")).toBeInTheDocument();
     expect(screen.getByText("분석 진행 중")).toBeInTheDocument();
   });
@@ -150,11 +151,11 @@ describe("authentication routes", () => {
 
     expect(await screen.findByRole("heading", { name: "사용자 프로젝트" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "관리" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "소스" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "분석" })).not.toBeInTheDocument();
     expect(screen.queryByRole("dialog", { name: "프로젝트 관리" })).not.toBeInTheDocument();
   });
 
-  it("shows analysis request, start, completion, and result fields in history", async () => {
+  it("shows analysis request, start, and completion fields in a keyboard-accessible history row", async () => {
     getCurrentUser.mockResolvedValue({ email: "admin@secscan.io", role: "ADMIN" });
     api.get
       .mockResolvedValueOnce({ data: { id: 1, name: "이력 프로젝트", description: null, source_status: "REGISTERED" } })
@@ -175,7 +176,10 @@ describe("authentication routes", () => {
     expect(await screen.findByRole("columnheader", { name: "분석 요청 시각" })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "시작 시각" })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "완료 시각" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "결과 보기" })).toHaveAttribute("href", "/projects/1/analyses/11");
+    const analysisRow = screen.getByRole("row", { name: /분석 완료/ });
+    expect(analysisRow).toHaveAttribute("tabindex", "0");
+    fireEvent.keyDown(analysisRow, { key: "Enter" });
+    await waitFor(() => expect(window.location.pathname).toBe("/projects/1/analyses/11"));
   });
 
   it("shows the generic not-found message for project detail 404", async () => {
@@ -291,19 +295,36 @@ describe("authentication routes", () => {
     ["SOURCE_UPLOAD_IN_PROGRESS", {}, "upload"],
   ])("handles project analysis conflict %s", async (code, data, expected) => {
     getCurrentUser.mockResolvedValue({ email: "admin@secscan.io", role: "ADMIN" });
-    api.get
-      .mockResolvedValue({
-        data: {
-          id: 8, project_id: 1, executed_by: 1, status: "PENDING", created_at: "2026-08-28T00:00:00Z",
-        },
-      })
-      .mockResolvedValueOnce({ data: { id: 1, name: "등록 프로젝트", source_status: "REGISTERED" } })
-      .mockResolvedValueOnce({ data: [] });
-    api.post.mockRejectedValue({ response: { status: 409, data: { code, ...data } } });
+    api.get.mockImplementation((url: string) => {
+      if (url === "/projects/1") return Promise.resolve({ data: { id: 1, name: "등록 프로젝트" } });
+      if (url === "/analyses/") return Promise.resolve({ data: [] });
+      if (url === "/analyses/8") {
+        return Promise.resolve({
+          data: { id: 8, project_id: 1, executed_by: 1, status: "PENDING", created_at: "2026-08-28T00:00:00Z" },
+        });
+      }
+      return Promise.resolve({ data: [] });
+    });
+    api.post.mockImplementation((url: string) => {
+      if (url === "/projects/1/source/preflight") return Promise.resolve({ data: { safe: true } });
+      return Promise.reject({ response: { status: 409, data: { code, ...data } } });
+    });
+    api.put.mockResolvedValue({ data: { project_id: 1, source_status: "REGISTERED", target_languages: ["JAVA"] } });
 
     renderApp("/projects/1");
-    fireEvent.click(await screen.findByRole("button", { name: "소스" }));
-    fireEvent.click(await screen.findByRole("button", { name: "분석 실행" }));
+    fireEvent.click(await screen.findByRole("button", { name: "분석" }));
+    vi.useFakeTimers();
+    fireEvent.change(screen.getByLabelText("ZIP 파일"), {
+      target: { files: [new File(["source"], "sample.zip", { type: "application/zip" })] },
+    });
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+      await vi.advanceTimersByTimeAsync(3_000);
+    });
+    expect(api.put).not.toHaveBeenCalled();
+    vi.useRealTimers();
+    fireEvent.click(screen.getByRole("button", { name: "분석 실행" }));
 
     if (expected === "analysis") {
       expect(await screen.findByRole("heading", { name: "분석 상태" })).toBeInTheDocument();

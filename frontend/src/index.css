@@ -55,10 +55,6 @@
     transition: border-color 150ms ease, background-color 150ms ease, color 150ms ease;
   }
 
-  button:not(:disabled):hover {
-    border-color: color-mix(in srgb, var(--secscan-violet) 65%, var(--secscan-border));
-    background: #202025;
-  }
 
   button:disabled {
     cursor: not-allowed;
@@ -185,11 +181,6 @@ button.bg-black {
   color: var(--secscan-canvas);
 }
 
-button.bg-black:hover:not(:disabled) {
-  border-color: var(--secscan-violet);
-  background-color: var(--secscan-violet);
-  color: var(--secscan-foreground);
-}
 
 button.bg-black.text-white {
   color: var(--secscan-canvas);
@@ -218,11 +209,6 @@ button.bg-black.text-white {
   font-weight: 600;
 }
 
-.secscan-primary-button:hover:not(:disabled) {
-  border-color: var(--secscan-violet);
-  background: var(--secscan-violet);
-  color: var(--secscan-foreground);
-}
 
 .secscan-secondary-button {
   border-color: var(--secscan-border);
@@ -297,4 +283,30 @@ button.bg-black.text-white {
 .secscan-error-state {
   border-color: rgb(248 113 113 / 0.35);
   color: #fca5a5;
+}
+
+.secscan-catalog-edit-form input[readonly] {
+  border-color: transparent;
+  outline: none;
+}
+
+.secscan-preflight-progress {
+  height: 0.25rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--secscan-border);
+}
+
+.secscan-preflight-progress span {
+  display: block;
+  width: 35%;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--secscan-cyan);
+  animation: secscan-preflight-slide 3s ease-in-out infinite;
+}
+
+@keyframes secscan-preflight-slide {
+  0% { transform: translateX(-120%); }
+  100% { transform: translateX(320%); }
 }

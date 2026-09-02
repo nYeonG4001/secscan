@@ -18,6 +18,12 @@ interface ProjectAccess {
   user_email: string;
 }
 
+interface AccessUserSearch {
+  user_id: number;
+  user_email: string;
+  already_granted: boolean;
+}
+
 interface ConflictBody {
   code?: string;
   analysis_id?: number;
@@ -70,17 +76,19 @@ export default function ProjectDetailPage() {
   const [project, setProject] = useState<Project | null>(null);
   const [accesses, setAccesses] = useState<ProjectAccess[]>([]);
   const [showManagePanel, setShowManagePanel] = useState(false);
-  const [showSourceActionPanel, setShowSourceActionPanel] = useState(false);
   const [showSourceUploadPanel, setShowSourceUploadPanel] = useState(false);
   const [hasActiveAnalysis, setHasActiveAnalysis] = useState(false);
   const [analyses, setAnalyses] = useState<Analysis[]>([]);
   const [email, setEmail] = useState("");
+  const [searchedUser, setSearchedUser] = useState<AccessUserSearch | null>(null);
   const [accessError, setAccessError] = useState<string | null>(null);
+  const [searchError, setSearchError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [analysisStarting, setAnalysisStarting] = useState(false);
   const [loading, setLoading] = useState(true);
   const [editName, setEditName] = useState("");
   const [editDescription, setEditDescription] = useState("");
+  const [projectSaving, setProjectSaving] = useState(false);
 
   const handleRequestError = useCallback((requestError: unknown) => {
     const status = errorStatus(requestError);
@@ -146,6 +154,7 @@ export default function ProjectDetailPage() {
 
   async function openManagePanel() {
     setAccessError(null);
+    setSearchError(null);
     setEditName(project?.name ?? "");
     setEditDescription(project?.description ?? "");
     setShowManagePanel(true);
@@ -153,9 +162,12 @@ export default function ProjectDetailPage() {
   }
 
   function closeManagePanel() {
+    if (hasProjectChanges && !window.confirm("저장하지 않은 변경사항이 있습니다. 닫을까요?")) return;
     setShowManagePanel(false);
     setEmail("");
     setAccessError(null);
+    setSearchError(null);
+    setSearchedUser(null);
   }
 
   function closeSourceUploadPanel() {
@@ -163,8 +175,7 @@ export default function ProjectDetailPage() {
   }
 
   function openSourceAction() {
-    if (sourceRegistered) setShowSourceActionPanel(true);
-    else setShowSourceUploadPanel(true);
+    setShowSourceUploadPanel(true);
   }
 
   async function refreshProjectAfterUpload() {
@@ -194,13 +205,13 @@ export default function ProjectDetailPage() {
     }
   }
 
-  async function grantAccess(event: FormEvent) {
-    event.preventDefault();
-    if (!projectId) return;
+  async function grantAccess(userToGrant = searchedUser) {
+    if (!projectId || !userToGrant || userToGrant.already_granted) return;
     setAccessError(null);
     try {
       await api.post(`/projects/${projectId}/access`, { email });
       setEmail("");
+      setSearchedUser(null);
       await loadAccesses();
     } catch (requestError) {
       const status = errorStatus(requestError);
@@ -214,7 +225,9 @@ export default function ProjectDetailPage() {
 
   async function revokeAccess(userId: number) {
     if (!projectId) return;
+    if (!window.confirm("이 사용자의 프로젝트 접근권한을 해제할까요?")) return;
     setAccessError(null);
+    setSearchError(null);
     try {
       await api.delete(`/projects/${projectId}/access/${userId}`);
       await loadAccesses();
@@ -227,21 +240,49 @@ export default function ProjectDetailPage() {
     }
   }
 
+  async function searchAccessUser() {
+    if (!projectId || !email) return;
+    setAccessError(null);
+    setSearchError(null);
+    setSearchedUser(null);
+    try {
+      const response = await api.get<AccessUserSearch>(`/projects/${projectId}/access/user`, { params: { email } });
+      setSearchedUser(response.data);
+      if (response.data.already_granted) setAccessError("이미 접근권한이 부여된 사용자입니다.");
+      else if (window.confirm(`${response.data.user_email} 사용자에게 프로젝트 접근권한을 부여하시겠습니까?`)) await grantAccess(response.data);
+    } catch (requestError) {
+      const status = errorStatus(requestError);
+      if (status === 401) handleRequestError(requestError);
+      else if (status === 403) setAccessError(FORBIDDEN_MESSAGE);
+      else if (status === 404) setSearchError("해당 사용자를 찾을 수 없습니다.");
+      else if (status === 422) setSearchError("일반 사용자 이메일을 입력해 주세요.");
+      else setSearchError("사용자를 검색하지 못했습니다. 다시 시도해 주세요.");
+    }
+  }
+
   async function updateProjectDetails(event: FormEvent) {
     event.preventDefault();
-    if (!project) return;
+    if (!project || !hasProjectChanges || projectSaving) return;
+    setProjectSaving(true);
+    const startedAt = Date.now();
     try {
       const updated = await updateProject(project.id, { name: editName, description: editDescription || null });
+      const remainingDelay = Math.max(0, 300 - (Date.now() - startedAt));
+      if (remainingDelay > 0) await new Promise((resolve) => setTimeout(resolve, remainingDelay));
       setProject(updated);
       setShowManagePanel(false);
-    } catch (requestError) { handleRequestError(requestError); }
+    } catch (requestError) {
+      handleRequestError(requestError);
+    } finally {
+      setProjectSaving(false);
+    }
   }
 
   if (loading) return <section className="secscan-loading-state" aria-busy="true">프로젝트를 불러오는 중...</section>;
   if (error && !project) return <section role="alert" className="secscan-error-state">{error}</section>;
   if (!project) return <section role="alert" className="secscan-error-state">{NOT_FOUND_MESSAGE}</section>;
 
-  const sourceRegistered = project.source_status === "REGISTERED";
+  const hasProjectChanges = project !== null && (editName !== project.name || editDescription !== (project.description ?? ""));
 
   return (
     <section className="min-w-0">
@@ -250,7 +291,7 @@ export default function ProjectDetailPage() {
         <span aria-hidden="true">&gt;</span>
         <span className="min-w-0 truncate text-secscan-foreground" title={project.name}>{project.name}</span>
       </nav>
-      <div className="mt-5 flex min-w-0 flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
+      <div className="mt-5 flex min-w-0 flex-col gap-2 xl:flex-row xl:items-start xl:justify-between">
         <div className="min-w-0">
           <h1 className="break-words text-3xl font-bold tracking-tight">{project.name}</h1>
           {project.description && <p className="mt-3 max-w-2xl break-words text-sm text-secscan-muted">{project.description}</p>}
@@ -260,7 +301,7 @@ export default function ProjectDetailPage() {
         </div>
         {user?.role === "ADMIN" && (
           <div className="flex min-w-0 flex-col items-stretch xl:items-end">
-            <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:justify-end">
+          <div className="-mt-2 flex min-w-0 flex-col gap-3 sm:flex-row sm:justify-end">
               <button
                 type="button"
                 onClick={openManagePanel}
@@ -274,7 +315,7 @@ export default function ProjectDetailPage() {
                 disabled={hasActiveAnalysis || analysisStarting}
                 className="secscan-primary-button w-full disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
               >
-                <span className="inline-flex items-center gap-2"><SourceIcon />{analysisStarting ? "요청 중..." : "소스"}</span>
+                <span className="inline-flex items-center gap-2"><SourceIcon />{analysisStarting ? "요청 중..." : "분석"}</span>
               </button>
             </div>
           </div>
@@ -283,7 +324,7 @@ export default function ProjectDetailPage() {
       {analyses.length === 0 ? (
         <div className="secscan-empty-state mt-7 text-sm">아직 분석 이력이 없습니다.</div>
       ) : (
-        <div className="mt-8">
+        <div className="mt-2">
           <h2 className="text-xl font-bold">분석 이력</h2>
           <div className="secscan-panel mt-4 overflow-x-auto">
               <table className="min-w-[780px] w-full border-collapse text-left text-sm" aria-label="분석 이력">
@@ -293,7 +334,6 @@ export default function ProjectDetailPage() {
                     <th scope="col" className="px-5 py-3">상태</th>
                     <th scope="col" className="px-5 py-3">시작 시각</th>
                     <th scope="col" className="px-5 py-3">완료 시각</th>
-                    <th scope="col" className="px-5 py-3">결과</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-secscan-border">
@@ -316,11 +356,6 @@ export default function ProjectDetailPage() {
                         <td className="px-5 py-4"><span className={`secscan-status-badge ${presentation.className}`}>{presentation.label}</span></td>
                         <td className="whitespace-nowrap px-5 py-4 text-secscan-muted">{formatAnalysisTime(analysis.started_at)}</td>
                         <td className="whitespace-nowrap px-5 py-4 text-secscan-muted">{formatAnalysisTime(analysis.completed_at)}</td>
-                        <td className="px-5 py-4">
-                          {analysis.status === "COMPLETED"
-                            ? <Link to={`/projects/${project.id}/analyses/${analysis.id}`} className="secscan-secondary-button px-3 py-1.5 text-xs">결과 보기</Link>
-                            : <span className="text-secscan-muted">—</span>}
-                        </td>
                       </tr>
                     );
                   })}
@@ -333,49 +368,50 @@ export default function ProjectDetailPage() {
       {showSourceUploadPanel && user?.role === "ADMIN" && (
         <SourceUploadDrawer
           projectId={projectId ?? ""}
+          hasExistingSource={project.source_status === "REGISTERED"}
           onClose={closeSourceUploadPanel}
           onProjectRefresh={refreshProjectAfterUpload}
           onRequestError={handleRequestError}
+          onAnalysis={() => { setShowSourceUploadPanel(false); void startAnalysis(); }}
         />
-      )}
-      {showSourceActionPanel && user?.role === "ADMIN" && (
-        <ActionDrawer
-          title="소스 및 분석"
-          onClose={() => setShowSourceActionPanel(false)}
-        >
-          <p className="text-sm text-secscan-muted">현재 소스를 교체하거나 등록된 소스로 분석을 실행할 수 있습니다.</p>
-          <div className="mt-6 grid gap-3">
-            <button type="button" onClick={() => { setShowSourceActionPanel(false); setShowSourceUploadPanel(true); }} className="secscan-secondary-button w-full">소스 교체</button>
-            <button type="button" onClick={() => { setShowSourceActionPanel(false); void startAnalysis(); }} className="secscan-primary-button w-full">분석 실행</button>
-          </div>
-        </ActionDrawer>
       )}
       {showManagePanel && user?.role === "ADMIN" && (
         <ActionDrawer
           title="프로젝트 관리"
           onClose={closeManagePanel}
-          footer={<button type="submit" form="edit-project" className="secscan-primary-button w-full">프로젝트 정보 저장</button>}
+          hideDividers
         >
           {accessError && <p role="alert" className="secscan-error-state mb-4 text-sm">{accessError}</p>}
-          <form id="edit-project" onSubmit={updateProjectDetails} className="space-y-4">
+          <form id="edit-project" onSubmit={updateProjectDetails} className="-mt-2 space-y-4">
             <label className="block text-sm font-medium">프로젝트 이름<input required value={editName} onChange={(event) => setEditName(event.target.value)} className="mt-2" /></label>
             <label className="block text-sm font-medium">설명<textarea value={editDescription} onChange={(event) => setEditDescription(event.target.value)} className="mt-2" /></label>
+            <button type="submit" disabled={!hasProjectChanges || projectSaving} className="secscan-primary-button w-full disabled:cursor-not-allowed disabled:opacity-45">{projectSaving ? "저장 중..." : "저장"}</button>
           </form>
-          <section className="mt-8">
-            <h3 className="text-sm font-semibold">사용자 접근권한</h3>
-            <form id="grant-access-form" onSubmit={grantAccess} className="mt-3 flex gap-2">
-              <input id="access-email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="사용자 이메일" required />
-              <button type="submit" className="secscan-secondary-button shrink-0">추가</button>
-            </form>
+          <section className="mt-12 border-t border-secscan-border pt-8">
+            <h2 className="text-xl font-bold">사용자 접근권한</h2>
+            <h3 className="mt-4 text-sm font-semibold">권한 부여</h3>
+            <div className="mt-3 flex gap-2">
+              <input id="access-email" type="email" value={email} onChange={(event) => { setEmail(event.target.value); setSearchedUser(null); setAccessError(null); setSearchError(null); }} placeholder="사용자 이메일" required />
+              <button type="button" onClick={() => void searchAccessUser()} className="secscan-secondary-button shrink-0">검색</button>
+            </div>
+            {searchError && <p role="alert" className="mt-2 text-sm text-red-400">{searchError}</p>}
+            <div className="mt-6" />
           </section>
-          <ul className="mt-5 space-y-2">
-            {accesses.map((access) => (
+          <section className="mt-8">
+            <h3 className="text-sm font-semibold">접근 권한이 있는 사용자</h3>
+            {accesses.length === 0 ? (
+              <p className="mt-4 text-sm text-secscan-muted">권한이 부여된 사용자가 없습니다.</p>
+            ) : (
+              <ul className="mt-4 space-y-2">
+                {accesses.map((access) => (
               <li key={access.id} className="flex min-w-0 items-center justify-between gap-3 border-b border-secscan-border pb-3 text-sm">
                 <span className="min-w-0 break-all">{access.user_email}</span>
                 <button type="button" onClick={() => revokeAccess(access.user_id)} className="secscan-destructive-button shrink-0 px-2 py-1">해제</button>
               </li>
-            ))}
-          </ul>
+                ))}
+              </ul>
+            )}
+          </section>
         </ActionDrawer>
       )}
     </section>
