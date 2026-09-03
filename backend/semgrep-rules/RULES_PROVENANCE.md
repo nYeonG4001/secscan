@@ -61,5 +61,11 @@ ADR-042 A단계 2차 확장(신규 규칙): 이번 라운드부터 신규 JavaSc
 - `secscan.python.os-popen` 규칙은 동기·비동기 함수 매개변수가 `os.popen($COMMAND)`로 흐르는 경우를 다룬다. 고정 명령 문자열은 탐지하지 않으며, 기존 `secscan.python.os-system`(`os.system(...)`)과는 다른 API이므로 별도 규칙 ID를 사용한다.
 - `secscan.python.subprocess-output-shell` 규칙은 동기·비동기 함수 매개변수가 `subprocess.getoutput($COMMAND)` 또는 `subprocess.getstatusoutput($COMMAND)`로 흐르는 경우를 하나의 규칙 ID 안에서 `pattern-either`로 다룬다. 두 API는 반환 형식만 다른 같은 암묵적 셸 실행 계열이므로 근접 쌍 예외로 묶었다. 고정 명령 문자열은 탐지하지 않는다.
 
+ADR-043 B단계 프레임워크 요청 source 확장: 기존 Python 15개 규칙과 Java 3개 규칙의 source를 함수·메서드 매개변수에서 프레임워크 직접 요청 접근으로 확장했다.
+- Python 규칙은 `from flask import request`, `from flask import request as $REQ`, `import flask`의 세 가지 import anchor 문맥에서 `request.args`, `request.form`, `request.values`, `request.headers`, `request.cookies`, `request.json`, `request.get_json(...)`, `request.data`, `request.get_data(...)`의 9가지 직접 접근 형태를 source로 다룬다. import anchor가 없는 동명의 로컬 `request`나 `flask` 객체는 오탐 방지를 위해 source로 보지 않는다. Flask view 함수의 URL 경로 매개변수는 기존 함수 매개변수 source가 이미 다루므로 별도 framework source로 중복 추가하지 않는다.
+- Java 규칙(`secscan.java.runtime-exec`, `secscan.java.jdbc-statement-sql`, `secscan.java.process-builder`)은 메서드 매개변수 선언이 `HttpServletRequest`, `javax.servlet.http.HttpServletRequest`, `jakarta.servlet.http.HttpServletRequest` 중 하나인 선언 anchor 문맥에서 `$REQ.getParameter(...)`, `$REQ.getHeader(...)`, `$REQ.getPathInfo()`의 세 가지 직접 접근 형태를 source로 다룬다. 실제 classpath나 import를 해석하는 것이 아니라 작성된 매개변수 선언의 구문 형태(syntactic anchor)만 판정하며, Servlet 선언 anchor가 없는 동명 메서드 호출은 source로 보지 않는다. `getPathInfo()`는 서블릿 매핑 뒤 남은 전체 raw path 문자열을 의미하며 Spring `@PathVariable` 등 개별 어노테이션 바인딩을 의미하지 않는다.
+- 전파와 한계: Flask와 Java 모두 같은 함수 또는 메서드 안의 일반 지역 변수 대입·재대입 전파를 포함한다. 그러나 사용자 정의 helper 함수, 다른 함수·메서드로의 인자 전달, Spring DI 어노테이션, JSON body 역직렬화 파싱, Servlet cookie 배열 반복과 같은 복합 흐름, sanitizer 및 허용 목록 인식은 포함하지 않는다.
+- JavaScript 유지와 후속 공백: JavaScript 규칙에는 anchor 없는 `req.*` source를 추가하지 않고 기존 parameter source 형태를 유지한다. 익명 함수나 화살표 함수 형태의 Express 핸들러는 `dom-innerhtml`을 제외한 대부분의 JavaScript 규칙에서 탐지되지 않는 알려진 후속 공백이며, 이는 함수 source 형태 확장을 위한 별도 ADR·spike로 검토한다.
+
 이 규칙들은 각 언어와 API의 제한된 source-to-sink 형태만 다루며, 모든 프레임워크나 변형을
 포괄한다고 주장하지 않는다.

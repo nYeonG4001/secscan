@@ -11,6 +11,18 @@ rules:
           - pattern: |
               public $RET $METHOD(..., String $PARAM, ...) { ... }
           - focus-metavariable: $PARAM
+      - patterns:
+          - pattern-either:
+              - pattern: $REQ.getParameter(...)
+              - pattern: $REQ.getHeader(...)
+              - pattern: $REQ.getPathInfo()
+          - pattern-either:
+              - pattern-inside: |
+                  $RET $METHOD(..., HttpServletRequest $REQ, ...) { ... }
+              - pattern-inside: |
+                  $RET $METHOD(..., javax.servlet.http.HttpServletRequest $REQ, ...) { ... }
+              - pattern-inside: |
+                  $RET $METHOD(..., jakarta.servlet.http.HttpServletRequest $REQ, ...) { ... }
     pattern-sinks:
       - pattern: Runtime.getRuntime().exec($COMMAND)
 
@@ -42,6 +54,48 @@ rules:
               def $FUNC(..., $PARAM, ...):
                   ...
           - focus-metavariable: $PARAM
+      - patterns:
+          - pattern-either:
+              - pattern: request.args
+              - pattern: request.form
+              - pattern: request.values
+              - pattern: request.headers
+              - pattern: request.cookies
+              - pattern: request.json
+              - pattern: request.get_json(...)
+              - pattern: request.data
+              - pattern: request.get_data(...)
+          - pattern-inside: |
+              from flask import request
+              ...
+      - patterns:
+          - pattern-either:
+              - pattern: $REQ.args
+              - pattern: $REQ.form
+              - pattern: $REQ.values
+              - pattern: $REQ.headers
+              - pattern: $REQ.cookies
+              - pattern: $REQ.json
+              - pattern: $REQ.get_json(...)
+              - pattern: $REQ.data
+              - pattern: $REQ.get_data(...)
+          - pattern-inside: |
+              from flask import request as $REQ
+              ...
+      - patterns:
+          - pattern-either:
+              - pattern: flask.request.args
+              - pattern: flask.request.form
+              - pattern: flask.request.values
+              - pattern: flask.request.headers
+              - pattern: flask.request.cookies
+              - pattern: flask.request.json
+              - pattern: flask.request.get_json(...)
+              - pattern: flask.request.data
+              - pattern: flask.request.get_data(...)
+          - pattern-inside: |
+              import flask
+              ...
     pattern-sinks:
       - pattern: pickle.loads($DATA)
 
@@ -72,6 +126,18 @@ rules:
               - pattern: |
                   $RET $METHOD(..., String $PARAM, ...) { ... }
           - focus-metavariable: $PARAM
+      - patterns:
+          - pattern-either:
+              - pattern: $REQ.getParameter(...)
+              - pattern: $REQ.getHeader(...)
+              - pattern: $REQ.getPathInfo()
+          - pattern-either:
+              - pattern-inside: |
+                  $RET $METHOD(..., HttpServletRequest $REQ, ...) { ... }
+              - pattern-inside: |
+                  $RET $METHOD(..., javax.servlet.http.HttpServletRequest $REQ, ...) { ... }
+              - pattern-inside: |
+                  $RET $METHOD(..., jakarta.servlet.http.HttpServletRequest $REQ, ...) { ... }
     pattern-sinks:
       - pattern-either:
           - pattern: $STATEMENT.executeQuery($SQL)
@@ -175,6 +241,48 @@ rules:
                   async def $FUNC(..., $PARAM, ...):
                       ...
           - focus-metavariable: $PARAM
+      - patterns:
+          - pattern-either:
+              - pattern: request.args
+              - pattern: request.form
+              - pattern: request.values
+              - pattern: request.headers
+              - pattern: request.cookies
+              - pattern: request.json
+              - pattern: request.get_json(...)
+              - pattern: request.data
+              - pattern: request.get_data(...)
+          - pattern-inside: |
+              from flask import request
+              ...
+      - patterns:
+          - pattern-either:
+              - pattern: $REQ.args
+              - pattern: $REQ.form
+              - pattern: $REQ.values
+              - pattern: $REQ.headers
+              - pattern: $REQ.cookies
+              - pattern: $REQ.json
+              - pattern: $REQ.get_json(...)
+              - pattern: $REQ.data
+              - pattern: $REQ.get_data(...)
+          - pattern-inside: |
+              from flask import request as $REQ
+              ...
+      - patterns:
+          - pattern-either:
+              - pattern: flask.request.args
+              - pattern: flask.request.form
+              - pattern: flask.request.values
+              - pattern: flask.request.headers
+              - pattern: flask.request.cookies
+              - pattern: flask.request.json
+              - pattern: flask.request.get_json(...)
+              - pattern: flask.request.data
+              - pattern: flask.request.get_data(...)
+          - pattern-inside: |
+              import flask
+              ...
     pattern-sinks:
       - pattern: open($PATH, ...)
 
@@ -191,6 +299,48 @@ rules:
               def $FUNC(..., $PARAM, ...):
                   ...
           - focus-metavariable: $PARAM
+      - patterns:
+          - pattern-either:
+              - pattern: request.args
+              - pattern: request.form
+              - pattern: request.values
+              - pattern: request.headers
+              - pattern: request.cookies
+              - pattern: request.json
+              - pattern: request.get_json(...)
+              - pattern: request.data
+              - pattern: request.get_data(...)
+          - pattern-inside: |
+              from flask import request
+              ...
+      - patterns:
+          - pattern-either:
+              - pattern: $REQ.args
+              - pattern: $REQ.form
+              - pattern: $REQ.values
+              - pattern: $REQ.headers
+              - pattern: $REQ.cookies
+              - pattern: $REQ.json
+              - pattern: $REQ.get_json(...)
+              - pattern: $REQ.data
+              - pattern: $REQ.get_data(...)
+          - pattern-inside: |
+              from flask import request as $REQ
+              ...
+      - patterns:
+          - pattern-either:
+              - pattern: flask.request.args
+              - pattern: flask.request.form
+              - pattern: flask.request.values
+              - pattern: flask.request.headers
+              - pattern: flask.request.cookies
+              - pattern: flask.request.json
+              - pattern: flask.request.get_json(...)
+              - pattern: flask.request.data
+              - pattern: flask.request.get_data(...)
+          - pattern-inside: |
+              import flask
+              ...
     pattern-sinks:
       - patterns:
           - pattern: os.system($COMMAND)
@@ -211,6 +361,48 @@ rules:
               def $FUNC(..., $PARAM, ...):
                   ...
           - focus-metavariable: $PARAM
+      - patterns:
+          - pattern-either:
+              - pattern: request.args
+              - pattern: request.form
+              - pattern: request.values
+              - pattern: request.headers
+              - pattern: request.cookies
+              - pattern: request.json
+              - pattern: request.get_json(...)
+              - pattern: request.data
+              - pattern: request.get_data(...)
+          - pattern-inside: |
+              from flask import request
+              ...
+      - patterns:
+          - pattern-either:
+              - pattern: $REQ.args
+              - pattern: $REQ.form
+              - pattern: $REQ.values
+              - pattern: $REQ.headers
+              - pattern: $REQ.cookies
+              - pattern: $REQ.json
+              - pattern: $REQ.get_json(...)
+              - pattern: $REQ.data
+              - pattern: $REQ.get_data(...)
+          - pattern-inside: |
+              from flask import request as $REQ
+              ...
+      - patterns:
+          - pattern-either:
+              - pattern: flask.request.args
+              - pattern: flask.request.form
+              - pattern: flask.request.values
+              - pattern: flask.request.headers
+              - pattern: flask.request.cookies
+              - pattern: flask.request.json
+              - pattern: flask.request.get_json(...)
+              - pattern: flask.request.data
+              - pattern: flask.request.get_data(...)
+          - pattern-inside: |
+              import flask
+              ...
     pattern-sinks:
       - pattern: eval($CODE)
 
@@ -227,6 +419,48 @@ rules:
               def $FUNC(..., $PARAM, ...):
                   ...
           - focus-metavariable: $PARAM
+      - patterns:
+          - pattern-either:
+              - pattern: request.args
+              - pattern: request.form
+              - pattern: request.values
+              - pattern: request.headers
+              - pattern: request.cookies
+              - pattern: request.json
+              - pattern: request.get_json(...)
+              - pattern: request.data
+              - pattern: request.get_data(...)
+          - pattern-inside: |
+              from flask import request
+              ...
+      - patterns:
+          - pattern-either:
+              - pattern: $REQ.args
+              - pattern: $REQ.form
+              - pattern: $REQ.values
+              - pattern: $REQ.headers
+              - pattern: $REQ.cookies
+              - pattern: $REQ.json
+              - pattern: $REQ.get_json(...)
+              - pattern: $REQ.data
+              - pattern: $REQ.get_data(...)
+          - pattern-inside: |
+              from flask import request as $REQ
+              ...
+      - patterns:
+          - pattern-either:
+              - pattern: flask.request.args
+              - pattern: flask.request.form
+              - pattern: flask.request.values
+              - pattern: flask.request.headers
+              - pattern: flask.request.cookies
+              - pattern: flask.request.json
+              - pattern: flask.request.get_json(...)
+              - pattern: flask.request.data
+              - pattern: flask.request.get_data(...)
+          - pattern-inside: |
+              import flask
+              ...
     pattern-sinks:
       - pattern: exec($CODE)
 
@@ -247,6 +481,48 @@ rules:
                   async def $FUNC(..., $PARAM, ...):
                       ...
           - focus-metavariable: $PARAM
+      - patterns:
+          - pattern-either:
+              - pattern: request.args
+              - pattern: request.form
+              - pattern: request.values
+              - pattern: request.headers
+              - pattern: request.cookies
+              - pattern: request.json
+              - pattern: request.get_json(...)
+              - pattern: request.data
+              - pattern: request.get_data(...)
+          - pattern-inside: |
+              from flask import request
+              ...
+      - patterns:
+          - pattern-either:
+              - pattern: $REQ.args
+              - pattern: $REQ.form
+              - pattern: $REQ.values
+              - pattern: $REQ.headers
+              - pattern: $REQ.cookies
+              - pattern: $REQ.json
+              - pattern: $REQ.get_json(...)
+              - pattern: $REQ.data
+              - pattern: $REQ.get_data(...)
+          - pattern-inside: |
+              from flask import request as $REQ
+              ...
+      - patterns:
+          - pattern-either:
+              - pattern: flask.request.args
+              - pattern: flask.request.form
+              - pattern: flask.request.values
+              - pattern: flask.request.headers
+              - pattern: flask.request.cookies
+              - pattern: flask.request.json
+              - pattern: flask.request.get_json(...)
+              - pattern: flask.request.data
+              - pattern: flask.request.get_data(...)
+          - pattern-inside: |
+              import flask
+              ...
     pattern-sinks:
       - pattern: pickle.load($DATA)
 
@@ -267,6 +543,48 @@ rules:
                   async def $FUNC(..., $PARAM, ...):
                       ...
           - focus-metavariable: $PARAM
+      - patterns:
+          - pattern-either:
+              - pattern: request.args
+              - pattern: request.form
+              - pattern: request.values
+              - pattern: request.headers
+              - pattern: request.cookies
+              - pattern: request.json
+              - pattern: request.get_json(...)
+              - pattern: request.data
+              - pattern: request.get_data(...)
+          - pattern-inside: |
+              from flask import request
+              ...
+      - patterns:
+          - pattern-either:
+              - pattern: $REQ.args
+              - pattern: $REQ.form
+              - pattern: $REQ.values
+              - pattern: $REQ.headers
+              - pattern: $REQ.cookies
+              - pattern: $REQ.json
+              - pattern: $REQ.get_json(...)
+              - pattern: $REQ.data
+              - pattern: $REQ.get_data(...)
+          - pattern-inside: |
+              from flask import request as $REQ
+              ...
+      - patterns:
+          - pattern-either:
+              - pattern: flask.request.args
+              - pattern: flask.request.form
+              - pattern: flask.request.values
+              - pattern: flask.request.headers
+              - pattern: flask.request.cookies
+              - pattern: flask.request.json
+              - pattern: flask.request.get_json(...)
+              - pattern: flask.request.data
+              - pattern: flask.request.get_data(...)
+          - pattern-inside: |
+              import flask
+              ...
     pattern-sinks:
       - patterns:
           - pattern-either:
@@ -350,6 +668,18 @@ rules:
               - pattern: |
                   $RET $METHOD(..., String $PARAM, ...) { ... }
           - focus-metavariable: $PARAM
+      - patterns:
+          - pattern-either:
+              - pattern: $REQ.getParameter(...)
+              - pattern: $REQ.getHeader(...)
+              - pattern: $REQ.getPathInfo()
+          - pattern-either:
+              - pattern-inside: |
+                  $RET $METHOD(..., HttpServletRequest $REQ, ...) { ... }
+              - pattern-inside: |
+                  $RET $METHOD(..., javax.servlet.http.HttpServletRequest $REQ, ...) { ... }
+              - pattern-inside: |
+                  $RET $METHOD(..., jakarta.servlet.http.HttpServletRequest $REQ, ...) { ... }
     pattern-sinks:
       - pattern: new ProcessBuilder($COMMAND).start()
       - patterns:
@@ -375,6 +705,48 @@ rules:
                   async def $FUNC(..., $PARAM, ...):
                       ...
           - focus-metavariable: $PARAM
+      - patterns:
+          - pattern-either:
+              - pattern: request.args
+              - pattern: request.form
+              - pattern: request.values
+              - pattern: request.headers
+              - pattern: request.cookies
+              - pattern: request.json
+              - pattern: request.get_json(...)
+              - pattern: request.data
+              - pattern: request.get_data(...)
+          - pattern-inside: |
+              from flask import request
+              ...
+      - patterns:
+          - pattern-either:
+              - pattern: $REQ.args
+              - pattern: $REQ.form
+              - pattern: $REQ.values
+              - pattern: $REQ.headers
+              - pattern: $REQ.cookies
+              - pattern: $REQ.json
+              - pattern: $REQ.get_json(...)
+              - pattern: $REQ.data
+              - pattern: $REQ.get_data(...)
+          - pattern-inside: |
+              from flask import request as $REQ
+              ...
+      - patterns:
+          - pattern-either:
+              - pattern: flask.request.args
+              - pattern: flask.request.form
+              - pattern: flask.request.values
+              - pattern: flask.request.headers
+              - pattern: flask.request.cookies
+              - pattern: flask.request.json
+              - pattern: flask.request.get_json(...)
+              - pattern: flask.request.data
+              - pattern: flask.request.get_data(...)
+          - pattern-inside: |
+              import flask
+              ...
     pattern-sinks:
       - patterns:
           - pattern: subprocess.run($COMMAND, ..., shell=True, ...)
@@ -449,6 +821,48 @@ rules:
                   async def $FUNC(..., $PARAM, ...):
                       ...
           - focus-metavariable: $PARAM
+      - patterns:
+          - pattern-either:
+              - pattern: request.args
+              - pattern: request.form
+              - pattern: request.values
+              - pattern: request.headers
+              - pattern: request.cookies
+              - pattern: request.json
+              - pattern: request.get_json(...)
+              - pattern: request.data
+              - pattern: request.get_data(...)
+          - pattern-inside: |
+              from flask import request
+              ...
+      - patterns:
+          - pattern-either:
+              - pattern: $REQ.args
+              - pattern: $REQ.form
+              - pattern: $REQ.values
+              - pattern: $REQ.headers
+              - pattern: $REQ.cookies
+              - pattern: $REQ.json
+              - pattern: $REQ.get_json(...)
+              - pattern: $REQ.data
+              - pattern: $REQ.get_data(...)
+          - pattern-inside: |
+              from flask import request as $REQ
+              ...
+      - patterns:
+          - pattern-either:
+              - pattern: flask.request.args
+              - pattern: flask.request.form
+              - pattern: flask.request.values
+              - pattern: flask.request.headers
+              - pattern: flask.request.cookies
+              - pattern: flask.request.json
+              - pattern: flask.request.get_json(...)
+              - pattern: flask.request.data
+              - pattern: flask.request.get_data(...)
+          - pattern-inside: |
+              import flask
+              ...
     pattern-sinks:
       - pattern: pickle.Unpickler($DATA).load()
 
@@ -469,6 +883,48 @@ rules:
                   async def $FUNC(..., $PARAM, ...):
                       ...
           - focus-metavariable: $PARAM
+      - patterns:
+          - pattern-either:
+              - pattern: request.args
+              - pattern: request.form
+              - pattern: request.values
+              - pattern: request.headers
+              - pattern: request.cookies
+              - pattern: request.json
+              - pattern: request.get_json(...)
+              - pattern: request.data
+              - pattern: request.get_data(...)
+          - pattern-inside: |
+              from flask import request
+              ...
+      - patterns:
+          - pattern-either:
+              - pattern: $REQ.args
+              - pattern: $REQ.form
+              - pattern: $REQ.values
+              - pattern: $REQ.headers
+              - pattern: $REQ.cookies
+              - pattern: $REQ.json
+              - pattern: $REQ.get_json(...)
+              - pattern: $REQ.data
+              - pattern: $REQ.get_data(...)
+          - pattern-inside: |
+              from flask import request as $REQ
+              ...
+      - patterns:
+          - pattern-either:
+              - pattern: flask.request.args
+              - pattern: flask.request.form
+              - pattern: flask.request.values
+              - pattern: flask.request.headers
+              - pattern: flask.request.cookies
+              - pattern: flask.request.json
+              - pattern: flask.request.get_json(...)
+              - pattern: flask.request.data
+              - pattern: flask.request.get_data(...)
+          - pattern-inside: |
+              import flask
+              ...
     pattern-sinks:
       - pattern: subprocess.Popen($COMMAND, ..., shell=True, ...)
 
@@ -489,6 +945,48 @@ rules:
                   async def $FUNC(..., $PARAM, ...):
                       ...
           - focus-metavariable: $PARAM
+      - patterns:
+          - pattern-either:
+              - pattern: request.args
+              - pattern: request.form
+              - pattern: request.values
+              - pattern: request.headers
+              - pattern: request.cookies
+              - pattern: request.json
+              - pattern: request.get_json(...)
+              - pattern: request.data
+              - pattern: request.get_data(...)
+          - pattern-inside: |
+              from flask import request
+              ...
+      - patterns:
+          - pattern-either:
+              - pattern: $REQ.args
+              - pattern: $REQ.form
+              - pattern: $REQ.values
+              - pattern: $REQ.headers
+              - pattern: $REQ.cookies
+              - pattern: $REQ.json
+              - pattern: $REQ.get_json(...)
+              - pattern: $REQ.data
+              - pattern: $REQ.get_data(...)
+          - pattern-inside: |
+              from flask import request as $REQ
+              ...
+      - patterns:
+          - pattern-either:
+              - pattern: flask.request.args
+              - pattern: flask.request.form
+              - pattern: flask.request.values
+              - pattern: flask.request.headers
+              - pattern: flask.request.cookies
+              - pattern: flask.request.json
+              - pattern: flask.request.get_json(...)
+              - pattern: flask.request.data
+              - pattern: flask.request.get_data(...)
+          - pattern-inside: |
+              import flask
+              ...
     pattern-sinks:
       - pattern: subprocess.call($COMMAND, ..., shell=True, ...)
 
@@ -509,6 +1007,48 @@ rules:
                   async def $FUNC(..., $PARAM, ...):
                       ...
           - focus-metavariable: $PARAM
+      - patterns:
+          - pattern-either:
+              - pattern: request.args
+              - pattern: request.form
+              - pattern: request.values
+              - pattern: request.headers
+              - pattern: request.cookies
+              - pattern: request.json
+              - pattern: request.get_json(...)
+              - pattern: request.data
+              - pattern: request.get_data(...)
+          - pattern-inside: |
+              from flask import request
+              ...
+      - patterns:
+          - pattern-either:
+              - pattern: $REQ.args
+              - pattern: $REQ.form
+              - pattern: $REQ.values
+              - pattern: $REQ.headers
+              - pattern: $REQ.cookies
+              - pattern: $REQ.json
+              - pattern: $REQ.get_json(...)
+              - pattern: $REQ.data
+              - pattern: $REQ.get_data(...)
+          - pattern-inside: |
+              from flask import request as $REQ
+              ...
+      - patterns:
+          - pattern-either:
+              - pattern: flask.request.args
+              - pattern: flask.request.form
+              - pattern: flask.request.values
+              - pattern: flask.request.headers
+              - pattern: flask.request.cookies
+              - pattern: flask.request.json
+              - pattern: flask.request.get_json(...)
+              - pattern: flask.request.data
+              - pattern: flask.request.get_data(...)
+          - pattern-inside: |
+              import flask
+              ...
     pattern-sinks:
       - pattern: subprocess.check_call($COMMAND, ..., shell=True, ...)
 
@@ -529,6 +1069,48 @@ rules:
                   async def $FUNC(..., $PARAM, ...):
                       ...
           - focus-metavariable: $PARAM
+      - patterns:
+          - pattern-either:
+              - pattern: request.args
+              - pattern: request.form
+              - pattern: request.values
+              - pattern: request.headers
+              - pattern: request.cookies
+              - pattern: request.json
+              - pattern: request.get_json(...)
+              - pattern: request.data
+              - pattern: request.get_data(...)
+          - pattern-inside: |
+              from flask import request
+              ...
+      - patterns:
+          - pattern-either:
+              - pattern: $REQ.args
+              - pattern: $REQ.form
+              - pattern: $REQ.values
+              - pattern: $REQ.headers
+              - pattern: $REQ.cookies
+              - pattern: $REQ.json
+              - pattern: $REQ.get_json(...)
+              - pattern: $REQ.data
+              - pattern: $REQ.get_data(...)
+          - pattern-inside: |
+              from flask import request as $REQ
+              ...
+      - patterns:
+          - pattern-either:
+              - pattern: flask.request.args
+              - pattern: flask.request.form
+              - pattern: flask.request.values
+              - pattern: flask.request.headers
+              - pattern: flask.request.cookies
+              - pattern: flask.request.json
+              - pattern: flask.request.get_json(...)
+              - pattern: flask.request.data
+              - pattern: flask.request.get_data(...)
+          - pattern-inside: |
+              import flask
+              ...
     pattern-sinks:
       - pattern: subprocess.check_output($COMMAND, ..., shell=True, ...)
 
@@ -549,6 +1131,48 @@ rules:
                   async def $FUNC(..., $PARAM, ...):
                       ...
           - focus-metavariable: $PARAM
+      - patterns:
+          - pattern-either:
+              - pattern: request.args
+              - pattern: request.form
+              - pattern: request.values
+              - pattern: request.headers
+              - pattern: request.cookies
+              - pattern: request.json
+              - pattern: request.get_json(...)
+              - pattern: request.data
+              - pattern: request.get_data(...)
+          - pattern-inside: |
+              from flask import request
+              ...
+      - patterns:
+          - pattern-either:
+              - pattern: $REQ.args
+              - pattern: $REQ.form
+              - pattern: $REQ.values
+              - pattern: $REQ.headers
+              - pattern: $REQ.cookies
+              - pattern: $REQ.json
+              - pattern: $REQ.get_json(...)
+              - pattern: $REQ.data
+              - pattern: $REQ.get_data(...)
+          - pattern-inside: |
+              from flask import request as $REQ
+              ...
+      - patterns:
+          - pattern-either:
+              - pattern: flask.request.args
+              - pattern: flask.request.form
+              - pattern: flask.request.values
+              - pattern: flask.request.headers
+              - pattern: flask.request.cookies
+              - pattern: flask.request.json
+              - pattern: flask.request.get_json(...)
+              - pattern: flask.request.data
+              - pattern: flask.request.get_data(...)
+          - pattern-inside: |
+              import flask
+              ...
     pattern-sinks:
       - pattern: os.popen($COMMAND)
 
@@ -569,6 +1193,48 @@ rules:
                   async def $FUNC(..., $PARAM, ...):
                       ...
           - focus-metavariable: $PARAM
+      - patterns:
+          - pattern-either:
+              - pattern: request.args
+              - pattern: request.form
+              - pattern: request.values
+              - pattern: request.headers
+              - pattern: request.cookies
+              - pattern: request.json
+              - pattern: request.get_json(...)
+              - pattern: request.data
+              - pattern: request.get_data(...)
+          - pattern-inside: |
+              from flask import request
+              ...
+      - patterns:
+          - pattern-either:
+              - pattern: $REQ.args
+              - pattern: $REQ.form
+              - pattern: $REQ.values
+              - pattern: $REQ.headers
+              - pattern: $REQ.cookies
+              - pattern: $REQ.json
+              - pattern: $REQ.get_json(...)
+              - pattern: $REQ.data
+              - pattern: $REQ.get_data(...)
+          - pattern-inside: |
+              from flask import request as $REQ
+              ...
+      - patterns:
+          - pattern-either:
+              - pattern: flask.request.args
+              - pattern: flask.request.form
+              - pattern: flask.request.values
+              - pattern: flask.request.headers
+              - pattern: flask.request.cookies
+              - pattern: flask.request.json
+              - pattern: flask.request.get_json(...)
+              - pattern: flask.request.data
+              - pattern: flask.request.get_data(...)
+          - pattern-inside: |
+              import flask
+              ...
     pattern-sinks:
       - pattern-either:
           - pattern: subprocess.getoutput($COMMAND)
