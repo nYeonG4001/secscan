@@ -50,7 +50,7 @@ jobs:
         working-directory: frontend
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "20"
           cache: "npm"
@@ -82,7 +82,7 @@ jobs:
           pip install -r requirements-dev.txt
           pip-audit -r requirements.txt
         continue-on-error: true
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "20"
       - name: Frontend dependency audit (npm audit)
