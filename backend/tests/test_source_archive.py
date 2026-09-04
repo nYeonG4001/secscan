@@ -138,6 +138,16 @@ def test_rejects_compressed_input_over_limit_before_extracting(tmp_path):
     assert list(staging.iterdir()) == []
 
 
+def test_default_limits_match_approved_education_test_profile():
+    limits = SourceArchiveLimits()
+    assert limits.max_input_bytes == 100 * 1024 * 1024
+    assert limits.max_extracted_bytes == 300 * 1024 * 1024
+    assert limits.max_entries == 10_000
+    assert limits.max_file_bytes == 25 * 1024 * 1024
+    assert limits.max_expansion_ratio == 20.0
+    assert limits.ratio_check_output_bytes == 1024 * 1024
+
+
 def test_allows_high_expansion_ratio_before_output_threshold(tmp_path):
     archive = make_archive([("small.py", "a" * 99)])
     staging = tmp_path / "staging"
