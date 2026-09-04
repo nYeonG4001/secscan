@@ -146,3 +146,100 @@ def test_unauthenticated_access_revocation_returns_401(client, db_session):
     db_session.commit()
 
     assert client.delete(f"/projects/{project.id}/access/{member.id}").status_code == 401
+
+
+def test_admin_finds_access_user_by_email_not_yet_granted(client, db_session):
+    admin = create_user(db_session, email="admin@secscan.io", role="ADMIN")
+    member = create_user(db_session, email="member@secscan.io", role="USER")
+    project = create_project(db_session, name="사용자 검색 대상", created_by=admin.id)
+    headers = login(client, admin.email)
+
+    response = client.get(
+        f"/projects/{project.id}/access/user",
+        params={"email": member.email},
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "user_id": member.id,
+        "user_email": member.email,
+        "already_granted": False,
+    }
+
+
+def test_admin_finds_access_user_by_email_already_granted(client, db_session):
+    admin = create_user(db_session, email="admin@secscan.io", role="ADMIN")
+    member = create_user(db_session, email="member@secscan.io", role="USER")
+    project = create_project(db_session, name="사용자 검색 대상 2", created_by=admin.id)
+    db_session.add(ProjectAccess(project_id=project.id, user_id=member.id, granted_by=admin.id))
+    db_session.commit()
+    headers = login(client, admin.email)
+
+    response = client.get(
+        f"/projects/{project.id}/access/user",
+        params={"email": member.email},
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "user_id": member.id,
+        "user_email": member.email,
+        "already_granted": True,
+    }
+
+
+def test_find_access_user_returns_404_for_unknown_email(client, db_session):
+    admin = create_user(db_session, email="admin@secscan.io", role="ADMIN")
+    project = create_project(db_session, name="미확인 사용자 대상", created_by=admin.id)
+    headers = login(client, admin.email)
+
+    response = client.get(
+        f"/projects/{project.id}/access/user",
+        params={"email": "missing@secscan.io"},
+        headers=headers,
+    )
+
+    assert response.status_code == 404
+
+
+def test_find_access_user_returns_404_for_missing_project(client, db_session):
+    admin = create_user(db_session, email="admin@secscan.io", role="ADMIN")
+    member = create_user(db_session, email="member@secscan.io", role="USER")
+    headers = login(client, admin.email)
+
+    response = client.get(
+        "/projects/9999/access/user",
+        params={"email": member.email},
+        headers=headers,
+    )
+
+    assert response.status_code == 404
+
+
+def test_find_access_user_returns_401_when_unauthenticated(client, db_session):
+    admin = create_user(db_session, email="admin@secscan.io", role="ADMIN")
+    member = create_user(db_session, email="member@secscan.io", role="USER")
+    project = create_project(db_session, name="미인증 검색 대상", created_by=admin.id)
+
+    response = client.get(
+        f"/projects/{project.id}/access/user", params={"email": member.email}
+    )
+
+    assert response.status_code == 401
+
+
+def test_find_access_user_returns_403_for_ordinary_user(client, db_session):
+    admin = create_user(db_session, email="admin@secscan.io", role="ADMIN")
+    member = create_user(db_session, email="member@secscan.io", role="USER")
+    project = create_project(db_session, name="일반 사용자 검색 대상", created_by=admin.id)
+    headers = login(client, member.email)
+
+    response = client.get(
+        f"/projects/{project.id}/access/user",
+        params={"email": member.email},
+        headers=headers,
+    )
+
+    assert response.status_code == 403

@@ -175,6 +175,26 @@ ZIP을 실제로 등록하지 않고 안전성만 미리 검증한다. 요청은
 
 접근권한 생성과 목록 응답은 관계의 `user_id`와 함께 `user_email`을 포함한다. 화면은 이메일을 표시하고, 권한 해제 요청에는 내부 `user_id`를 사용한다.
 
+### `GET /api/projects/{project_id}/access/user?email=...`
+
+권한: 관리자
+
+접근권한을 부여하기 전에 이메일로 사용자를 조회한다. 존재하지 않는 프로젝트 또는 사용자는 404로 응답한다.
+
+성공 응답:
+
+```json
+{
+  "user_id": 7,
+  "user_email": "user@secscan.io",
+  "already_granted": false
+}
+```
+
+`already_granted`는 해당 사용자가 이 프로젝트에 이미 접근권한을 갖고 있는지를 나타낸다. 이 API는 조회만 하며 접근권한을 생성하지 않는다 — 실제 부여는 `POST /api/projects/{project_id}/access`를 별도로 호출해야 한다.
+
+401, 403, 404는 공통 인증, 권한, 자원 정책을 따른다.
+
 ### `DELETE /api/projects/{project_id}/access/{user_id}`
 
 권한: 관리자

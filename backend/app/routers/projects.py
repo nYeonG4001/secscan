@@ -23,6 +23,7 @@ from app.models.user import User
 from app.schemas.project import (
     ProjectAccessCreate,
     ProjectAccessOut,
+    ProjectAccessUserSearchOut,
     ProjectCreate,
     ProjectOut,
     ProjectUpdate,
@@ -220,6 +221,29 @@ def list_access(
         raise HTTPException(status_code=404, detail="프로젝트를 찾을 수 없습니다.")
     accesses = db.query(ProjectAccess).filter(ProjectAccess.project_id == project_id).all()
     return [_to_project_access_out(access) for access in accesses]
+
+
+@router.get("/{project_id}/access/user", response_model=ProjectAccessUserSearchOut)
+def find_access_user(
+    project_id: int,
+    email: str,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_admin),
+):
+    if not db.get(Project, project_id):
+        raise HTTPException(status_code=404, detail="프로젝트를 찾을 수 없습니다.")
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다.")
+    already_granted = (
+        db.query(ProjectAccess)
+        .filter(ProjectAccess.project_id == project_id, ProjectAccess.user_id == user.id)
+        .first()
+        is not None
+    )
+    return ProjectAccessUserSearchOut(
+        user_id=user.id, user_email=user.email, already_granted=already_granted
+    )
 
 
 @router.delete("/{project_id}/access/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
