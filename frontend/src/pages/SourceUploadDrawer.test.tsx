@@ -122,7 +122,7 @@ describe("SourceUploadDrawer", () => {
   });
 
   it.each([
-    ["ARCHIVE_TOO_LARGE", "25MB 이하 ZIP만 업로드할 수 있습니다."],
+    ["ARCHIVE_TOO_LARGE", "100MB 이하 ZIP만 업로드할 수 있습니다."],
     ["ARCHIVE_LIMIT_EXCEEDED", "ZIP 압축 해제 제한을 초과했습니다."],
     ["UNSAFE_ARCHIVE", "안전하지 않은 .zip 파일입니다."],
   ])("shows a red safe preflight error for %s and does not register", async (code, message) => {

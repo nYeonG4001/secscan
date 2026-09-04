@@ -61,6 +61,14 @@ def upload_zip(client, project_id: int, archive: io.BytesIO, token: str):
     )
 
 
+def preflight_zip(client, project_id: int, archive: io.BytesIO, token: str):
+    return client.post(
+        f"/projects/{project_id}/source/preflight",
+        files={"file": ("source.zip", archive, "application/zip")},
+        headers=auth_headers(token),
+    )
+
+
 @pytest.fixture
 def upload_workspace(tmp_path):
     return SourceWorkspace(tmp_path / "storage")
@@ -93,6 +101,32 @@ def upload_client(db_session, upload_workspace, upload_locks):
 # ---------- ADMIN success ----------
 
 
+def test_admin_preflight_valid_source_without_persisting_source(
+    upload_client, db_session, upload_workspace
+):
+    admin = create_user(db_session, email="admin@secscan.io", role="ADMIN")
+    token = login(upload_client, admin.email)
+    project = create_project_via_api(upload_client, token)
+
+    response = preflight_zip(
+        upload_client,
+        project["id"],
+        make_archive([("src/Main.java", "class Main {}")]),
+        token,
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"safe": True}
+
+    db_session.expire_all()
+    unchanged_project = db_session.get(Project, project["id"])
+    assert unchanged_project.source_type is None
+    assert unchanged_project.target_languages is None
+    assert unchanged_project.source_location is None
+    assert list((upload_workspace.storage_root / "staging").iterdir()) == []
+    assert not (upload_workspace.storage_root / "projects").exists()
+
+
 def test_admin_uploads_valid_source_with_csrf(upload_client, db_session, upload_workspace):
     admin = create_user(db_session, email="admin@secscan.io", role="ADMIN")
     token = login(upload_client, admin.email)
@@ -110,6 +144,64 @@ def test_admin_uploads_valid_source_with_csrf(upload_client, db_session, upload_
 
 
 # ---------- Auth / CSRF rejection ----------
+
+
+def test_unauthenticated_preflight_returns_401(upload_client, db_session):
+    admin = create_user(db_session, email="admin@secscan.io", role="ADMIN")
+    token = login(upload_client, admin.email)
+    project = create_project_via_api(upload_client, token)
+
+    upload_client.cookies.clear()
+    response = upload_client.post(
+        f"/projects/{project['id']}/source/preflight",
+        files={
+            "file": (
+                "source.zip",
+                make_archive([("app.py", "print('hello')")]),
+                "application/zip",
+            )
+        },
+    )
+
+    assert response.status_code == 401
+
+
+def test_user_preflight_returns_403(upload_client, db_session):
+    admin = create_user(db_session, email="admin@secscan.io", role="ADMIN")
+    user = create_user(db_session, email="user@secscan.io", role="USER")
+    admin_token = login(upload_client, admin.email)
+    project = create_project_via_api(upload_client, admin_token)
+
+    upload_client.cookies.clear()
+    user_token = login(upload_client, user.email)
+    response = preflight_zip(
+        upload_client,
+        project["id"],
+        make_archive([("app.py", "print('hello')")]),
+        user_token,
+    )
+
+    assert response.status_code == 403
+
+
+def test_preflight_missing_csrf_returns_403(upload_client, db_session):
+    admin = create_user(db_session, email="admin@secscan.io", role="ADMIN")
+    login(upload_client, admin.email)
+    token = upload_client.cookies.get("secscan_csrf")
+    project = create_project_via_api(upload_client, token)
+
+    response = upload_client.post(
+        f"/projects/{project['id']}/source/preflight",
+        files={
+            "file": (
+                "source.zip",
+                make_archive([("app.py", "print('hello')")]),
+                "application/zip",
+            )
+        },
+    )
+
+    assert response.status_code == 403
 
 
 def test_unauthenticated_upload_returns_401(upload_client, db_session):
@@ -325,6 +417,27 @@ def test_multi_language_detection(upload_client, db_session):
 
 
 # ---------- Unsupported source ----------
+
+
+def test_preflight_unsafe_archive_preserves_project_source(
+    upload_client, db_session, upload_workspace
+):
+    admin = create_user(db_session, email="admin@secscan.io", role="ADMIN")
+    token = login(upload_client, admin.email)
+    project = create_project_via_api(upload_client, token)
+
+    response = preflight_zip(
+        upload_client,
+        project["id"],
+        make_archive([("../escape.py", "print('evil')"), ("safe.py", "print(1)")]),
+        token,
+    )
+
+    assert response.status_code == 422
+    assert response.json() == {"code": "UNSAFE_ARCHIVE"}
+    db_session.expire_all()
+    assert db_session.get(Project, project["id"]).source_location is None
+    assert list((upload_workspace.storage_root / "staging").iterdir()) == []
 
 
 def test_unsupported_files_only_returns_no_supported_source(upload_client, db_session):

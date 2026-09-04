@@ -142,6 +142,31 @@ MVP에서는 `DELETE /api/projects/{project_id}`를 제공하지 않는다. 프�
 
 401, 403, 404는 공통 인증, 권한, 자원 정책을 따른다.
 
+### `POST /api/projects/{project_id}/source/preflight`
+
+권한: 관리자
+
+ZIP을 실제로 등록하지 않고 안전성만 미리 검증한다. 요청은 `multipart/form-data`이고 `file` 필드에 검증할 ZIP 하나를 포함한다. 검증은 임시 작업영역에서만 이루어지며, 검증에 성공하더라도 프로젝트의 현재 소스나 `source_status`를 바꾸지 않는다.
+
+검증 항목과 오류 `code`는 `PUT /api/projects/{project_id}/source`와 같다. 다만 사전검증은 활성 분석이나 동시 업로드 상태를 확인하지 않으므로 `ANALYSIS_ACTIVE`, `UPLOAD_IN_PROGRESS`는 반환하지 않는다.
+
+성공 응답:
+
+```json
+{
+  "safe": true
+}
+```
+
+| HTTP 상태 | `code` | 의미 |
+|---:|---|---|
+| 413 | `ARCHIVE_TOO_LARGE` | ZIP 원본 크기 초과 |
+| 422 | `ARCHIVE_LIMIT_EXCEEDED` | 압축 해제 제한 초과 |
+| 422 | `UNSAFE_ARCHIVE` | 위험한 경로 또는 링크 |
+| 422 | `NO_SUPPORTED_SOURCE` | 지원 소스 파일 없음 |
+
+401, 403, 404는 공통 인증, 권한, 자원 정책을 따른다.
+
 ### `POST /api/projects/{project_id}/access`
 
 권한: 관리자
@@ -149,6 +174,26 @@ MVP에서는 `DELETE /api/projects/{project_id}`를 제공하지 않는다. 프�
 요청 본문은 일반 사용자의 이메일을 받는다. 서버는 내부적으로 해당 사용자 ID를 찾아 접근 관계를 저장한다. 존재하지 않는 이메일 또는 프로젝트는 404, ADMIN 계정 대상은 422, 이미 부여된 접근권한은 409로 응답한다.
 
 접근권한 생성과 목록 응답은 관계의 `user_id`와 함께 `user_email`을 포함한다. 화면은 이메일을 표시하고, 권한 해제 요청에는 내부 `user_id`를 사용한다.
+
+### `GET /api/projects/{project_id}/access/user?email=...`
+
+권한: 관리자
+
+접근권한을 부여하기 전에 이메일로 사용자를 조회한다. 존재하지 않는 프로젝트 또는 사용자는 404로 응답한다.
+
+성공 응답:
+
+```json
+{
+  "user_id": 7,
+  "user_email": "user@secscan.io",
+  "already_granted": false
+}
+```
+
+`already_granted`는 해당 사용자가 이 프로젝트에 이미 접근권한을 갖고 있는지를 나타낸다. 이 API는 조회만 하며 접근권한을 생성하지 않는다 — 실제 부여는 `POST /api/projects/{project_id}/access`를 별도로 호출해야 한다.
+
+401, 403, 404는 공통 인증, 권한, 자원 정책을 따른다.
 
 ### `DELETE /api/projects/{project_id}/access/{user_id}`
 

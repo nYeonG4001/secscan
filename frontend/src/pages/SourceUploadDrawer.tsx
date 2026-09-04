@@ -11,7 +11,7 @@ type PreflightState = "idle" | "checking" | "safe" | "failed";
 const UPLOAD_ERROR_MESSAGES: Record<string, string> = {
   ANALYSIS_ACTIVE: "분석이 끝난 뒤 업로드할 수 있습니다.",
   UPLOAD_IN_PROGRESS: "다른 업로드가 진행 중입니다.",
-  ARCHIVE_TOO_LARGE: "25MB 이하 ZIP만 업로드할 수 있습니다.",
+  ARCHIVE_TOO_LARGE: "100MB 이하 ZIP만 업로드할 수 있습니다.",
   ARCHIVE_LIMIT_EXCEEDED: "ZIP 압축 해제 제한을 초과했습니다.",
   UNSAFE_ARCHIVE: "안전하지 않은 .zip 파일입니다.",
   NO_SUPPORTED_SOURCE: "지원하는 소스 파일이 없습니다.",

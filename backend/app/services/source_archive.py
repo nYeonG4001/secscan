@@ -55,10 +55,10 @@ class NoSupportedSourceError(SourceArchiveError):
 
 @dataclass(frozen=True)
 class SourceArchiveLimits:
-    max_input_bytes: int = 25 * MEBIBYTE
-    max_extracted_bytes: int = 100 * MEBIBYTE
-    max_entries: int = 5_000
-    max_file_bytes: int = 10 * MEBIBYTE
+    max_input_bytes: int = 100 * MEBIBYTE
+    max_extracted_bytes: int = 300 * MEBIBYTE
+    max_entries: int = 10_000
+    max_file_bytes: int = 25 * MEBIBYTE
     max_expansion_ratio: float = 20.0
     ratio_check_output_bytes: int = MEBIBYTE
     chunk_size: int = 64 * 1024

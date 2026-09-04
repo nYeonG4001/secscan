@@ -35,6 +35,10 @@ class SourceUploadOut(BaseModel):
     target_languages: List[str]
 
 
+class SourcePreflightOut(BaseModel):
+    safe: Literal[True] = True
+
+
 class ProjectAccessCreate(BaseModel):
     email: EmailStr
 
@@ -48,3 +52,9 @@ class ProjectAccessOut(BaseModel):
     granted_by: int
 
     model_config = {"from_attributes": True}
+
+
+class ProjectAccessUserSearchOut(BaseModel):
+    user_id: int
+    user_email: EmailStr
+    already_granted: bool
