@@ -35,6 +35,10 @@ class SourceUploadOut(BaseModel):
     target_languages: List[str]
 
 
+class SourcePreflightOut(BaseModel):
+    safe: Literal[True] = True
+
+
 class ProjectAccessCreate(BaseModel):
     email: EmailStr
 

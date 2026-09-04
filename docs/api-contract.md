@@ -142,6 +142,31 @@ MVP에서는 `DELETE /api/projects/{project_id}`를 제공하지 않는다. 프�
 
 401, 403, 404는 공통 인증, 권한, 자원 정책을 따른다.
 
+### `POST /api/projects/{project_id}/source/preflight`
+
+권한: 관리자
+
+ZIP을 실제로 등록하지 않고 안전성만 미리 검증한다. 요청은 `multipart/form-data`이고 `file` 필드에 검증할 ZIP 하나를 포함한다. 검증은 임시 작업영역에서만 이루어지며, 검증에 성공하더라도 프로젝트의 현재 소스나 `source_status`를 바꾸지 않는다.
+
+검증 항목과 오류 `code`는 `PUT /api/projects/{project_id}/source`와 같다. 다만 사전검증은 활성 분석이나 동시 업로드 상태를 확인하지 않으므로 `ANALYSIS_ACTIVE`, `UPLOAD_IN_PROGRESS`는 반환하지 않는다.
+
+성공 응답:
+
+```json
+{
+  "safe": true
+}
+```
+
+| HTTP 상태 | `code` | 의미 |
+|---:|---|---|
+| 413 | `ARCHIVE_TOO_LARGE` | ZIP 원본 크기 초과 |
+| 422 | `ARCHIVE_LIMIT_EXCEEDED` | 압축 해제 제한 초과 |
+| 422 | `UNSAFE_ARCHIVE` | 위험한 경로 또는 링크 |
+| 422 | `NO_SUPPORTED_SOURCE` | 지원 소스 파일 없음 |
+
+401, 403, 404는 공통 인증, 권한, 자원 정책을 따른다.
+
 ### `POST /api/projects/{project_id}/access`
 
 권한: 관리자

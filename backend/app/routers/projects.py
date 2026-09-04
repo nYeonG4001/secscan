@@ -26,6 +26,7 @@ from app.schemas.project import (
     ProjectCreate,
     ProjectOut,
     ProjectUpdate,
+    SourcePreflightOut,
     SourceUploadOut,
 )
 from app.services.project_upload_lock import ProjectUploadLocks, UploadInProgressError
@@ -273,6 +274,35 @@ def upload_source(
             return _process_source_upload(project, file, workspace, db)
     except UploadInProgressError:
         return JSONResponse(status_code=409, content={"code": "UPLOAD_IN_PROGRESS"})
+
+
+@router.post("/{project_id}/source/preflight", response_model=SourcePreflightOut)
+def preflight_source(
+    project_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user=Depends(require_admin),
+    _: None = Depends(require_csrf),
+    workspace: SourceWorkspace = Depends(get_source_workspace),
+):
+    if not db.get(Project, project_id):
+        raise HTTPException(status_code=404, detail="프로젝트를 찾을 수 없습니다.")
+
+    try:
+        with workspace.staging_directory() as staging_dir:
+            extract_source_archive(file.file, staging_dir)
+        return SourcePreflightOut()
+    except SourceArchiveTooLargeError:
+        return JSONResponse(status_code=413, content={"code": "ARCHIVE_TOO_LARGE"})
+    except SourceArchiveLimitExceededError:
+        return JSONResponse(status_code=422, content={"code": "ARCHIVE_LIMIT_EXCEEDED"})
+    except UnsafeSourceArchiveError:
+        return JSONResponse(status_code=422, content={"code": "UNSAFE_ARCHIVE"})
+    except NoSupportedSourceError:
+        return JSONResponse(status_code=422, content={"code": "NO_SUPPORTED_SOURCE"})
+    except SourceArchiveError:
+        logger.exception("Archive preflight error for project %d", project_id)
+        return JSONResponse(status_code=500, content={"code": "INTERNAL_ERROR"})
 
 
 def _process_source_upload(
